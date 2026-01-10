@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "SmartNav",
+    "slug": "smartnav",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "platforms": ["android"],
+    "android": {}
+  }
+}
