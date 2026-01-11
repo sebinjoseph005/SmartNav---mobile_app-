@@ -4,9 +4,20 @@
     "slug": "smartnav",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+
+    "backgroundColor": "#0B1220",
+
+    "splash": {
+      "image": "./assets/images/logos/app-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B1220"
+    },
+
     "assetBundlePatterns": ["**/*"],
+
     "platforms": ["android"],
+
     "android": {}
   }
 }
