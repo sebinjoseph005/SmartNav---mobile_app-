@@ -1,74 +1,76 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-
-const DATA = [
-  {
-    title: "Smart & Safe Navigation",
-    description:
-      "Get route recommendations based on real-time safety data, not just speed.",
-  },
-  {
-    title: "Stay Connected Offline",
-    description:
-      "Mesh networking keeps you safe even when the signal drops.",
-  },
-  {
-    title: "Live Like a Local",
-    description:
-      "Discover hidden gems verified by locals, not tourists.",
-  },
-];
+import React from 'react';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 
 export default function OnboardingScreen() {
-  const [index, setIndex] = useState(0);
-
-  const next = () => {
-    if (index < DATA.length - 1) {
-      setIndex(index + 1);
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{DATA[index].title}</Text>
-      <Text style={styles.desc}>{DATA[index].description}</Text>
+      {/* IMAGE */}
+      <Image
+        source={require('../../../assets/images/onboarding/onboarding1.png')}
+        style={styles.image}
+      />
 
-      <TouchableOpacity style={styles.button} onPress={next}>
-        <Text style={styles.buttonText}>
-          {index === DATA.length - 1 ? "Done" : "Next"}
-        </Text>
+      {/* TITLE */}
+      <Text style={styles.title}>Smart & Safe Navigation</Text>
+
+      {/* SUBTITLE */}
+      <Text style={styles.subtitle}>
+        Get route recommendations based on real-time safety data, not just speed.
+      </Text>
+
+      {/* NEXT BUTTON */}
+      <TouchableOpacity style={styles.button}>
+        <Text style={styles.buttonText}>Next →</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
+/* ================= STYLES ================= */
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0F1A",
-    justifyContent: "center",
-    padding: 24,
+    backgroundColor: '#0B1220',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  image: {
+    width: '100%',
+    height: 260,
+    resizeMode: 'contain',
+    marginBottom: 40,
   },
   title: {
     fontSize: 26,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginBottom: 12,
+    textAlign: 'center',
   },
-  desc: {
+  subtitle: {
     fontSize: 16,
-    color: "#B0B7C3",
+    color: '#A0AEC0',
+    textAlign: 'center',
+    lineHeight: 22,
     marginBottom: 40,
   },
   button: {
-    backgroundColor: "#4F8CFF",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
+    backgroundColor: '#2563EB',
+    paddingVertical: 16,
+    paddingHorizontal: 60,
+    borderRadius: 14,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
   },
 });

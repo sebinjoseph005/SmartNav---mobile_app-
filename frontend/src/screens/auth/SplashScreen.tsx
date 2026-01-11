@@ -1,19 +1,21 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet, Pressable } from 'react-native';
 
 export default function SplashScreen({ navigation }: any) {
-  useEffect(() => {
-    setTimeout(() => {
-      navigation.replace("Onboarding");
-    }, 2000);
-  }, []);
-
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>SmartNav</Text>
-      <Text style={styles.tagline}>
-        Beyond Booking · Intelligent · Safe
-      </Text>
+      <Image
+        source={require('../../../assets/images/logos/logo.png')}
+        style={styles.logo}
+      />
+
+      <Text style={styles.title}>SmartNav</Text>
+
+      <Pressable
+        style={styles.button}
+        onPress={() => navigation.navigate('Onboarding')}
+      >
+        <Text style={styles.buttonText}>Next</Text>
+      </Pressable>
     </View>
   );
 }
@@ -21,18 +23,30 @@ export default function SplashScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0F1A",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#0B1220',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logo: {
-    fontSize: 36,
-    fontWeight: "bold",
-    color: "#4F8CFF",
+    width: 120,
+    height: 120,
+    marginBottom: 24,
   },
-  tagline: {
-    marginTop: 12,
-    color: "#B0B7C3",
-    fontSize: 14,
+  title: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 40,
+  },
+  button: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    paddingHorizontal: 48,
+    borderRadius: 12,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
