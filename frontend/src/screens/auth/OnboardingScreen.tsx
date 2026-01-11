@@ -45,7 +45,8 @@ export default function OnboardingScreen() {
     if (index < DATA.length - 1) {
       flatListRef.current?.scrollToIndex({ index: index + 1 });
     } else {
-      navigation.replace('LoginSignup');
+      // ✅ CORRECT: New users go to Register
+      navigation.replace('Register');
     }
   };
 
@@ -72,14 +73,18 @@ export default function OnboardingScreen() {
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
         onMomentumScrollEnd={(e) => {
-          const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+          const newIndex = Math.round(
+            e.nativeEvent.contentOffset.x / width
+          );
           setIndex(newIndex);
         }}
         renderItem={({ item }) => (
           <View style={styles.slide}>
             <Image source={item.image} style={styles.image} />
             <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
+            <Text style={styles.description}>
+              {item.description}
+            </Text>
           </View>
         )}
       />
