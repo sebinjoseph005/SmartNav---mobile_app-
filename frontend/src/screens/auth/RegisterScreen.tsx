@@ -14,6 +14,7 @@ import { supabase } from '../../services/supabase';
 const RegisterScreen = () => {
   const navigation = useNavigation<any>();
 
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,7 +25,10 @@ const RegisterScreen = () => {
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
   const isPasswordValid = password.length >= 6;
-  const canRegister = isValidEmail(email) && isPasswordValid;
+  const isNameValid = name.trim().length >= 2;
+
+  const canRegister =
+    isNameValid && isValidEmail(email) && isPasswordValid;
 
   const handleRegister = async () => {
     setSubmitted(true);
@@ -36,6 +40,11 @@ const RegisterScreen = () => {
       const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: name,
+          },
+        },
       });
 
       if (error) {
@@ -87,6 +96,22 @@ const RegisterScreen = () => {
           </Text>
         </Text>
 
+        {/* Name */}
+        <View style={styles.field}>
+          <TextInput
+            style={styles.input}
+            placeholder="Full Name"
+            placeholderTextColor="#8A94A6"
+            value={name}
+            onChangeText={setName}
+          />
+          {submitted && !isNameValid && (
+            <Text style={styles.errorText}>
+              Please enter your name
+            </Text>
+          )}
+        </View>
+
         {/* Email */}
         <View style={styles.field}>
           <TextInput
@@ -122,7 +147,6 @@ const RegisterScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Error message (perfectly aligned) */}
           {submitted && !isPasswordValid && (
             <Text style={styles.errorText}>
               Password must be at least 6 characters
@@ -166,10 +190,7 @@ const RegisterScreen = () => {
 export default RegisterScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B1220',
-  },
+  container: { flex: 1, backgroundColor: '#0B1220' },
 
   backButton: {
     position: 'absolute',
@@ -177,10 +198,7 @@ const styles = StyleSheet.create({
     left: 20,
     zIndex: 10,
   },
-  backText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-  },
+  backText: { color: '#FFFFFF', fontSize: 22 },
 
   header: {
     alignItems: 'center',
