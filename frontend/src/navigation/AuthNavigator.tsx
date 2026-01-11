@@ -1,33 +1,22 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import SplashScreen from '../screens/auth/SplashScreen';
 import OnboardingScreen from '../screens/auth/OnboardingScreen';
-import EmailLoginScreen from '../screens/auth/EmailLoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import EmailLoginScreen from '../screens/auth/EmailLoginScreen';
 
 const AuthStack = createNativeStackNavigator();
 
-const AuthNavigator = () => {
+export default function AuthNavigator() {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      
-      <AuthStack.Screen
-        name="Onboarding"
-        component={OnboardingScreen}
-      />
+    <AuthStack.Navigator id="AuthStack" screenOptions={{ headerShown: false }}>
+      {/* ✅ FIRST SCREEN */}
+      <AuthStack.Screen name="Splash" component={SplashScreen} />
 
-      <AuthStack.Screen
-        name="EmailLogin"
-        component={EmailLoginScreen}
-      />
-
-      <AuthStack.Screen
-        name="Register"
-        component={RegisterScreen}
-      />
-
+      <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="EmailLogin" component={EmailLoginScreen} />
     </AuthStack.Navigator>
   );
-};
-
-export default AuthNavigator;
+}

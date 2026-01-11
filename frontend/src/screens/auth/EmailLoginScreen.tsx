@@ -22,8 +22,7 @@ const EmailLoginScreen = () => {
   const isValidEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  const canContinue =
-    isValidEmail(email) && password.length >= 6;
+  const canContinue = isValidEmail(email) && password.length >= 6;
 
   const handleContinue = async () => {
     if (!canContinue) return;
@@ -31,28 +30,19 @@ const EmailLoginScreen = () => {
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      // Log full response for debugging (will appear in Metro/console)
-      console.log('Supabase signIn response:', { data, error });
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (error) {
-        Alert.alert('Sign in failed', error.message || 'Unable to sign in');
+        Alert.alert('Sign in failed', error.message);
         return;
       }
 
-      // Ensure we received a user or session before proceeding
-      if (data?.user || data?.session) {
-        navigation.replace('Home');
-      } else {
-        Alert.alert(
-          'Sign in failed',
-          'Signed in but no session returned. Check Supabase project settings.'
-        );
-      }
+      // ✅ IMPORTANT FIX — GO TO MAIN, NOT HOME
+      navigation.replace('Main');
     } catch (err: any) {
       Alert.alert('Sign in error', String(err));
     } finally {
@@ -62,7 +52,7 @@ const EmailLoginScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 🔙 Back → Register */}
+      {/* Back → Register */}
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
@@ -75,7 +65,6 @@ const EmailLoginScreen = () => {
         <Text style={styles.logo}>SafeTravels</Text>
       </View>
 
-      {/* Content */}
       <View style={styles.content}>
         <Text style={styles.title}>Sign in</Text>
 
@@ -83,10 +72,9 @@ const EmailLoginScreen = () => {
           Welcome back to your{' '}
           <Text style={styles.highlight}>
             safety ecosystem
-          </Text>.
+          </Text>
         </Text>
 
-        {/* Email */}
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -97,7 +85,6 @@ const EmailLoginScreen = () => {
           onChangeText={setEmail}
         />
 
-        {/* Password */}
         <View style={styles.passwordContainer}>
           <TextInput
             style={styles.passwordInput}
@@ -107,7 +94,6 @@ const EmailLoginScreen = () => {
             value={password}
             onChangeText={setPassword}
           />
-
           <TouchableOpacity
             onPress={() =>
               setShowPassword(!showPassword)
@@ -119,7 +105,6 @@ const EmailLoginScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Continue */}
         <TouchableOpacity
           style={[
             styles.primaryButton,
@@ -133,14 +118,12 @@ const EmailLoginScreen = () => {
           </Text>
         </TouchableOpacity>
 
-        {/* Divider */}
         <View style={styles.divider}>
           <View style={styles.line} />
           <Text style={styles.orText}>or</Text>
           <View style={styles.line} />
         </View>
 
-        {/* Google (later) */}
         <TouchableOpacity style={styles.googleButton}>
           <Text style={styles.googleText}>
             Continue with Google

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -39,13 +39,35 @@ const DATA = [
 export default function OnboardingScreen() {
   const flatListRef = useRef<FlatList>(null);
   const navigation = useNavigation<any>();
-  const [index, setIndex] = useState(0);
+  const route = useRoute<any>();
+
+  // ✅ startIndex support (default = 0)
+  const initialIndex =
+    typeof route.params?.startIndex === 'number'
+      ? route.params.startIndex
+      : 0;
+
+  const [index, setIndex] = useState(initialIndex);
+
+  // ✅ Scroll to correct slide when screen loads
+  useEffect(() => {
+    if (initialIndex > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({
+          index: initialIndex,
+          animated: false,
+        });
+      }, 50);
+    }
+  }, [initialIndex]);
 
   const goNext = () => {
     if (index < DATA.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: index + 1 });
+      flatListRef.current?.scrollToIndex({
+        index: index + 1,
+      });
     } else {
-      // ✅ CORRECT: New users go to Register
+      // ✅ New users go to Register
       navigation.replace('Register');
     }
   };
@@ -59,7 +81,10 @@ export default function OnboardingScreen() {
     <View style={styles.container}>
       {/* SKIP */}
       {index < 2 && (
-        <TouchableOpacity style={styles.skip} onPress={skipToLast}>
+        <TouchableOpacity
+          style={styles.skip}
+          onPress={skipToLast}
+        >
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       )}
@@ -72,6 +97,12 @@ export default function OnboardingScreen() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
+        initialScrollIndex={initialIndex}
+        getItemLayout={(_, i) => ({
+          length: width,
+          offset: width * i,
+          index: i,
+        })}
         onMomentumScrollEnd={(e) => {
           const newIndex = Math.round(
             e.nativeEvent.contentOffset.x / width
@@ -80,8 +111,13 @@ export default function OnboardingScreen() {
         }}
         renderItem={({ item }) => (
           <View style={styles.slide}>
-            <Image source={item.image} style={styles.image} />
-            <Text style={styles.title}>{item.title}</Text>
+            <Image
+              source={item.image}
+              style={styles.image}
+            />
+            <Text style={styles.title}>
+              {item.title}
+            </Text>
             <Text style={styles.description}>
               {item.description}
             </Text>
@@ -103,9 +139,14 @@ export default function OnboardingScreen() {
       </View>
 
       {/* BUTTON */}
-      <TouchableOpacity style={styles.button} onPress={goNext}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={goNext}
+      >
         <Text style={styles.buttonText}>
-          {index === 2 ? 'Get Started →' : 'Next →'}
+          {index === 2
+            ? 'Get Started →'
+            : 'Next →'}
         </Text>
       </TouchableOpacity>
     </View>
