@@ -52,17 +52,12 @@ const RegisterScreen = () => {
         return;
       }
 
-      Alert.alert(
-        'Account created',
-        'Please sign in to continue.',
-        [
-          {
-            text: 'OK',
-            onPress: () =>
-              navigation.replace('EmailLogin'),
-          },
-        ]
-      );
+      Alert.alert('Account created', 'Please sign in to continue.', [
+        {
+          text: 'OK',
+          onPress: () => navigation.replace('EmailLogin'),
+        },
+      ]);
     } catch (err: any) {
       Alert.alert('Error', String(err));
     } finally {
@@ -75,25 +70,22 @@ const RegisterScreen = () => {
       {/* Back */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() =>
-          navigation.replace('Onboarding')
-        }
+        onPress={() => navigation.replace('Onboarding')}
       >
         <Text style={styles.backText}>←</Text>
       </TouchableOpacity>
 
-      {/* Header */}
+      {/* HEADER — DO NOT TOUCH */}
       <View style={styles.header}>
         <Text style={styles.logo}>SafeTravels</Text>
       </View>
 
-      <View style={styles.content}>
+      {/* FORM — PUSHED DOWN */}
+      <View style={styles.form}>
         <Text style={styles.title}>Create account</Text>
         <Text style={styles.subtitle}>
           Get started with{' '}
-          <Text style={styles.highlight}>
-            SafeNav
-          </Text>
+          <Text style={styles.highlight}>SafeNav</Text>
         </Text>
 
         {/* Name */}
@@ -137,9 +129,7 @@ const RegisterScreen = () => {
               onChangeText={setPassword}
             />
             <TouchableOpacity
-              onPress={() =>
-                setShowPassword(!showPassword)
-              }
+              onPress={() => setShowPassword(!showPassword)}
             >
               <Text style={styles.showText}>
                 {showPassword ? 'Hide' : 'Show'}
@@ -158,24 +148,19 @@ const RegisterScreen = () => {
         <TouchableOpacity
           style={[
             styles.primaryButton,
-            !canRegister &&
-              styles.disabledButton,
+            !canRegister && styles.disabledButton,
           ]}
           disabled={isLoading}
           onPress={handleRegister}
         >
           <Text style={styles.primaryButtonText}>
-            {isLoading
-              ? 'Creating account…'
-              : 'Create Account'}
+            {isLoading ? 'Creating account…' : 'Create Account'}
           </Text>
         </TouchableOpacity>
 
         {/* Sign in */}
         <TouchableOpacity
-          onPress={() =>
-            navigation.navigate('EmailLogin')
-          }
+          onPress={() => navigation.navigate('EmailLogin')}
           style={styles.signInLink}
         >
           <Text style={styles.linkText}>
@@ -190,7 +175,10 @@ const RegisterScreen = () => {
 export default RegisterScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1220' },
+  container: {
+    flex: 1,
+    backgroundColor: '#0B1220',
+  },
 
   backButton: {
     position: 'absolute',
@@ -198,11 +186,14 @@ const styles = StyleSheet.create({
     left: 20,
     zIndex: 10,
   },
-  backText: { color: '#FFFFFF', fontSize: 22 },
+  backText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+  },
 
   header: {
     alignItems: 'center',
-    marginTop: 50,
+    marginTop: 50, // 🔒 stays the same
   },
   logo: {
     color: '#FFFFFF',
@@ -210,22 +201,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  content: {
-    flex: 1,
+  form: {
     paddingHorizontal: 24,
-    justifyContent: 'center',
+    marginTop: 110, // ✅ THIS is what you asked for
   },
 
   title: {
     color: '#FFFFFF',
     fontSize: 28,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   subtitle: {
     color: '#9AA4B2',
     fontSize: 14,
-    marginBottom: 28,
+    marginBottom: 22,
   },
   highlight: {
     color: '#2563EB',
@@ -233,7 +223,7 @@ const styles = StyleSheet.create({
   },
 
   field: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
   input: {
@@ -274,7 +264,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   disabledButton: {
     backgroundColor: '#1E293B',
@@ -286,7 +276,7 @@ const styles = StyleSheet.create({
   },
 
   signInLink: {
-    marginTop: 18,
+    marginTop: 16,
   },
   linkText: {
     color: '#3B82F6',
