@@ -25,7 +25,7 @@ import {
 import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 import { Calendar as RNCalendar } from 'react-native-calendars';
-import { fetchPlaceSuggestions } from '../../services/placesService';
+import { searchPlaces } from '../../services/placesService';
 
 export default function TripPlannerInput() {
   const navigation = useNavigation<any>();
@@ -34,6 +34,8 @@ export default function TripPlannerInput() {
   const [destination, setDestination] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
   
   // Date states - for display
   const [fromDate, setFromDate] = useState(() => {
@@ -287,6 +289,33 @@ export default function TripPlannerInput() {
     }
   };
 
+  const handleDestinationChange = (text: string) => {
+    setDestination(text);
+
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    if (text.length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        setIsSearching(true);
+        const results = await searchPlaces(text);
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      } catch (err) {
+        console.log('Nominatim API error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 510);
+  };
+
   // Calculate display amount (either custom or slider)
   const getDisplayAmount = () => {
     const parsedCustom = parseInt(customBudget) || 0;
@@ -315,12 +344,7 @@ export default function TripPlannerInput() {
         <View style={styles.inputBox}>
           <TextInput
             value={destination}
-            onChangeText={async (text) => {
-              setDestination(text);
-              const results = await fetchPlaceSuggestions(text);
-              setSuggestions(results);
-              setShowSuggestions(true);
-            }}
+            onChangeText={handleDestinationChange}
             placeholder="Enter destination"
             placeholderTextColor="#64748B"
             style={styles.inputText}
@@ -328,27 +352,25 @@ export default function TripPlannerInput() {
           <Search color="#94A3B8" size={18} />
         </View>
 
-        {showSuggestions && suggestions.length > 0 && (
+        {suggestions.length > 0 && (
           <View style={styles.suggestionsBox}>
-            <FlatList
-              data={suggestions}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.suggestionItem}
-                  onPress={() => {
-                    setDestination(item.name);
-                    setShowSuggestions(false);
-                    Keyboard.dismiss();
-                  }}
-                >
-                  <MapPin size={16} color="#60A5FA" />
-                  <Text style={styles.suggestionText}>
-                    {item.name}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
+            {suggestions.map((place, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.suggestionItem}
+                onPress={() => {
+                  setDestination(place.display_name);
+                  setSuggestions([]);
+                  setShowSuggestions(false);
+                  Keyboard.dismiss();
+                }}
+              >
+                <MapPin size={16} color="#60A5FA" />
+                <Text style={styles.suggestionText}>
+                  {place.display_name}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
 

@@ -1,26 +1,24 @@
-const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY;
-
-export async function fetchPlaceSuggestions(query: string) {
-  if (!query || query.length < 2) return [];
+export async function searchPlaces(query: string) {
+  if (!query || query.length < 3) return [];
 
   const url =
-    `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
-    `?input=${encodeURIComponent(query)}` +
-    `&types=(cities)` +
-    `&key=${GOOGLE_API_KEY}`;
+    `https://nominatim.openstreetmap.org/search` +
+    `?q=${encodeURIComponent(query)}` +
+    `&format=json` +
+    `&addressdetails=1` +
+    `&accept-language=en` +
+    `&limit=5`;
 
   try {
-    const res = await fetch(url);
-    const json = await res.json();
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'SmartNavApp/1.0', // REQUIRED by Nominatim
+      },
+    });
 
-    if (json.status !== 'OK') return [];
-
-    return json.predictions.map((item: any) => ({
-      id: item.place_id,
-      name: item.description,
-    }));
+    return await res.json();
   } catch (e) {
-    console.log('Places API error', e);
+    console.error('Nominatim API error:', e);
     return [];
   }
 }
