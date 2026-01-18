@@ -4,8 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { generateTripItinerary, testBackendConnection } from '../../services/api';
 
 export default function AIItineraryLoading() {
   const navigation = useNavigation<any>();
@@ -15,35 +17,129 @@ export default function AIItineraryLoading() {
   const [stepText, setStepText] = useState(
     'Analyzing 240+ local spots…'
   );
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
+    let interval: NodeJS.Timeout;
+
+    const generateItinerary = async () => {
+      if (isGenerating) return;
+      setIsGenerating(true);
+
+      try {
+        // Start progress animation
+        interval = setInterval(() => {
+          setProgress(prev => {
+            if (prev >= 90) {
+              return 90; // Cap at 90% until API returns
+            }
+
+            // Change text based on progress
+            if (prev === 20) {
+              setStepText('Fetching nearby places…');
+            } else if (prev === 45) {
+              setStepText('Analyzing your interests…');
+            } else if (prev === 70) {
+              setStepText('Creating personalized plan…');
+            }
+
+            return prev + 2;
+          });
+        }, 100);
+
+        // Call backend API
+        console.log('🚀 Calling backend API...');
+        console.log('📍 Destination:', route.params.destination);
+        console.log('💰 Budget:', route.params.budget);
+        console.log('🎯 Interests:', route.params.interests);
+        
+        const result = await generateTripItinerary({
+          destination: route.params.destination,
+          lat: route.params.lat || 0,
+          lon: route.params.lon || 0,
+          fromDate: route.params.fromDate,
+          toDate: route.params.toDate,
+          travelers: route.params.travelers,
+          budget: route.params.budget,
+          currency: route.params.currency,
+          interests: route.params.interests,
+        });
+
+        console.log('✅ Got result from backend:', result);
+
+        // Complete progress
+        clearInterval(interval);
+        setProgress(100);
+        setStepText('Finalizing your trip…');
+
+        // Navigate to result with generated data
+        setTimeout(() => {
           navigation.replace('AIItineraryResult', {
             ...route.params,
+            itinerary: result.itinerary,
+            isMockData: false,
           });
-          return 100;
-        }
+        }, 500);
+      } catch (error: any) {
+        clearInterval(interval);
+        console.error('❌ Backend API failed:', error);
+        
+        // Use fallback mock data
+        console.log('⚠️ Using fallback data');
+        const mockItinerary = {
+          destination: route.params.destination,
+          days: calculateDays(route.params.fromDate, route.params.toDate),
+          budget: route.params.budget,
+          currency: route.params.currency,
+          interests: route.params.interests,
+          timeline: generateMockTimeline(route.params),
+        };
+        
+        setProgress(100);
+        setStepText('Finalizing your trip…');
+        
+        setTimeout(() => {
+          navigation.replace('AIItineraryResult', {
+            ...route.params,
+            itinerary: mockItinerary,
+            isMockData: true,
+          });
+        }, 500);
+      }
+    };
 
-        // Change text based on progress
-        if (prev === 20) {
-          setStepText('Checking safety ratings…');
-        } else if (prev === 45) {
-          setStepText('Optimizing routes & timing…');
-        } else if (prev === 70) {
-          setStepText('Personalizing itinerary…');
-        } else if (prev === 90) {
-          setStepText('Finalizing your trip…');
-        }
+    generateItinerary();
 
-        return prev + 1;
-      });
-    }, 80); // speed of loading
-
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
+
+  // Helper to calculate days
+  const calculateDays = (fromDate: string, toDate: string): number => {
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+    const diff = Math.abs(to.getTime() - from.getTime());
+    return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+  // Generate mock timeline for testing
+  const generateMockTimeline = (params: any) => {
+    const interests = params.interests || ['History', 'Adventure'];
+    const days = calculateDays(params.fromDate, params.toDate);
+    
+    const mockActivities = [
+      { time: '9:00 AM', title: 'Morning Temple Visit', subtitle: 'Historical landmarks', rating: '4.5', badge: 'SafeZone', info: `₹${Math.round(params.budget * 0.1)} Entry • 2h` },
+      { time: '12:00 PM', title: 'Local Food Market', subtitle: 'Traditional cuisine experience', rating: '4.3', badge: 'Popular', info: `₹${Math.round(params.budget * 0.15)} • 1.5h` },
+      { time: '3:00 PM', title: interests[0] + ' Activity', subtitle: 'Based on your interests', rating: '4.6', badge: 'Recommended', info: `₹${Math.round(params.budget * 0.2)} • 2h` },
+      { time: '6:00 PM', title: 'Sunset View Point', subtitle: 'Scenic location', rating: '4.8', badge: 'SafeZone', info: 'Free • 1h' },
+    ];
+    
+    return Array.from({ length: days }, (_, i) => ({
+      day: i + 1,
+      activities: mockActivities,
+    }));
+  };
 
   return (
     <View style={styles.container}>

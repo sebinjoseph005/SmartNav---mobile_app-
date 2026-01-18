@@ -36,6 +36,8 @@ export default function TripPlannerInput() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [selectedLat, setSelectedLat] = useState<number>(0);
+  const [selectedLon, setSelectedLon] = useState<number>(0);
   
   // Date states - for display
   const [fromDate, setFromDate] = useState(() => {
@@ -360,6 +362,8 @@ export default function TripPlannerInput() {
                 style={styles.suggestionItem}
                 onPress={() => {
                   setDestination(place.display_name);
+                  setSelectedLat(parseFloat(place.lat));
+                  setSelectedLon(parseFloat(place.lon));
                   setSuggestions([]);
                   setShowSuggestions(false);
                   Keyboard.dismiss();
@@ -569,8 +573,10 @@ export default function TripPlannerInput() {
             }
             navigation.navigate('AIItineraryLoading', {
               destination,
-              fromDate: formatDisplayDate(fromDate),
-              toDate: formatDisplayDate(toDate),
+              lat: selectedLat,
+              lon: selectedLon,
+              fromDate: fromDate,
+              toDate: toDate,
               travelers,
               budget: parseInt(customBudget) || budget,
               currency,
