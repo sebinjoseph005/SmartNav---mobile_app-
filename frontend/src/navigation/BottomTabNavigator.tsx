@@ -1,18 +1,20 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { House, Map, Users, Shield, User } from 'lucide-react-native';
+import { House, Map, Users, Shield, User, Route } from 'lucide-react-native';
 
 import HomeStack from './StackNavigators/HomeStack';
 import MapStack from './StackNavigators/MapStack';
 import CommunityStack from './StackNavigators/CommunityStack';
 import SafetyStack from './StackNavigators/SafetyStack';
 import ProfileStack from './StackNavigators/ProfileStack';
+import TripStack from './StackNavigators/TripStack'; // ✅ ADD
 
 const Tab = createBottomTabNavigator();
 
 export default function BottomTabNavigator() {
   return (
-    <Tab.Navigator id="BottomTab"
+    <Tab.Navigator
+      id="BottomTab"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -24,9 +26,7 @@ export default function BottomTabNavigator() {
         tabBarInactiveTintColor: '#94A3B8',
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeStack}
+      <Tab.Screen name="Home" component={HomeStack}
         options={{
           tabBarIcon: ({ focused }) => (
             <House size={24} color={focused ? '#2563EB' : '#94A3B8'} />
@@ -34,9 +34,18 @@ export default function BottomTabNavigator() {
         }}
       />
 
+      {/* ✅ TRIP TAB */}
       <Tab.Screen
-        name="Map"
-        component={MapStack}
+        name="Trip"
+        component={TripStack}
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <Route size={24} color={focused ? '#2563EB' : '#94A3B8'} />
+          ),
+        }}
+      />
+
+      <Tab.Screen name="Map" component={MapStack}
         options={{
           tabBarIcon: ({ focused }) => (
             <Map size={24} color={focused ? '#2563EB' : '#94A3B8'} />
@@ -44,9 +53,7 @@ export default function BottomTabNavigator() {
         }}
       />
 
-      <Tab.Screen
-        name="Community"
-        component={CommunityStack}
+      <Tab.Screen name="Community" component={CommunityStack}
         options={{
           tabBarIcon: ({ focused }) => (
             <Users size={24} color={focused ? '#2563EB' : '#94A3B8'} />
@@ -54,9 +61,7 @@ export default function BottomTabNavigator() {
         }}
       />
 
-      <Tab.Screen
-        name="Safety"
-        component={SafetyStack}
+      <Tab.Screen name="Safety" component={SafetyStack}
         options={{
           tabBarIcon: ({ focused }) => (
             <Shield size={24} color={focused ? '#2563EB' : '#94A3B8'} />
@@ -64,9 +69,7 @@ export default function BottomTabNavigator() {
         }}
       />
 
-      <Tab.Screen
-        name="Profile"
-        component={ProfileStack}
+      <Tab.Screen name="Profile" component={ProfileStack}
         options={{
           tabBarIcon: ({ focused }) => (
             <User size={24} color={focused ? '#2563EB' : '#94A3B8'} />

@@ -93,7 +93,9 @@ export default function HomeDashboard() {
           icon={<Route />}
           label="Plan Trip"
           onPress={() =>
-            navigation.navigate('TripPlanner')
+            navigation.navigate('Trip', {
+              screen: 'TripPlanner',
+            })
           }
         />
         <BigAction
@@ -159,6 +161,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0B1220',
     padding: 16,
+    paddingTop: 25, // 👈 pulled down
   },
 
   header: {
