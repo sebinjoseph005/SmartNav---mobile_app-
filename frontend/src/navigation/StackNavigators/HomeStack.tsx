@@ -1,21 +1,25 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text } from 'react-native';
+
+import HomeDashboard from '../../screens/home/HomeDashboard';
+import WeatherDetails from '../../screens/home/WeatherDetails'; // ✅ ADD THIS
 
 const Stack = createNativeStackNavigator();
 
-function HomePlaceholder() {
-  return (
-    <View style={{ flex: 1, backgroundColor: '#0B1220', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ color: '#fff' }}>Home Screen</Text>
-    </View>
-  );
-}
-
 export default function HomeStack() {
   return (
-    <Stack.Navigator id="HomeStack" screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="HomeMain" component={HomePlaceholder} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {/* HOME */}
+      <Stack.Screen
+        name="HomeMain"
+        component={HomeDashboard}
+      />
+
+      {/* WEATHER DETAILS */}
+      <Stack.Screen
+        name="WeatherDetails"
+        component={WeatherDetails}
+      />
     </Stack.Navigator>
   );
 }

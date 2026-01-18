@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
 } from 'react-native';
 import {
@@ -13,75 +12,145 @@ import {
   WifiOff,
   Bell,
 } from 'lucide-react-native';
+import { supabase } from '../../services/supabase';
+import { useNavigation } from '@react-navigation/native';
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'Good Morning';
+  if (hour >= 12 && hour < 17) return 'Good Afternoon';
+  if (hour >= 17 && hour < 22) return 'Good Evening';
+  return 'Hello';
+};
 
 export default function HomeDashboard() {
+  const navigation = useNavigation<any>();
+  const [name, setName] = useState('Traveler');
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      const fullName =
+        data?.user?.user_metadata?.full_name;
+      if (fullName) setName(fullName);
+    };
+    loadUser();
+  }, []);
+
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* HEADER */}
       <View style={styles.header}>
-        <View style={styles.profileRow}>
-          <Image
-            source={require('../../../assets/images/placeholders/avatar-default.png')}
-            style={styles.avatar}
-          />
-          <View>
-            <Text style={styles.greeting}>Good Morning</Text>
-            <Text style={styles.name}>Welcome back, Alex</Text>
-          </View>
+        <View>
+          <Text style={styles.greeting}>
+            {getGreeting()}
+          </Text>
+          <Text style={styles.name}>
+            Welcome back, {name}
+          </Text>
         </View>
 
-        <Bell color="#94A3B8" size={22} />
+        <TouchableOpacity>
+          <Bell color="#94A3B8" size={22} />
+        </TouchableOpacity>
       </View>
 
-      {/* Status Cards */}
+      {/* STATUS CARDS */}
       <View style={styles.cardRow}>
-        <View style={styles.card}>
+        {/* ✅ SAFETY STATUS BUTTON */}
+        <TouchableOpacity
+          style={styles.statusCard}
+          activeOpacity={0.85}
+          onPress={() =>
+            navigation.navigate('Safety')
+          }
+        >
           <ShieldCheck color="#22C55E" size={22} />
           <Text style={styles.cardTitle}>SECURE</Text>
-          <Text style={styles.cardSub}>Safety Status</Text>
-        </View>
+          <Text style={styles.cardSub}>
+            Safety Status
+          </Text>
+        </TouchableOpacity>
 
-        <View style={styles.card}>
+        {/* ✅ WEATHER BUTTON */}
+        <TouchableOpacity
+          style={styles.statusCard}
+          activeOpacity={0.85}
+          onPress={() =>
+            navigation.navigate('WeatherDetails')
+          }
+        >
           <Text style={styles.temp}>24°C</Text>
-          <Text style={styles.cardSub}>Partly Cloudy</Text>
-        </View>
+          <Text style={styles.cardSub}>
+            Partly Cloudy
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Actions */}
-      <View style={styles.actions}>
-        <Action icon={<Route />} label="Plan Trip" />
-        <Action icon={<Navigation />} label="Navigate" />
-        <Action icon={<WifiOff />} label="Offline" />
-      </View>
-
-      {/* Map Placeholder */}
-      <View style={styles.mapBox}>
-        <Image
-          source={require('../../../assets/images/placeholders/location-default.png')}
-          style={styles.mapImage}
+      {/* BIG ACTION BUTTONS */}
+      <View style={styles.actionRow}>
+        <BigAction
+          icon={<Route />}
+          label="Plan Trip"
+          onPress={() =>
+            navigation.navigate('TripPlanner')
+          }
         />
+        <BigAction
+          icon={<Navigation />}
+          label="Navigate"
+          onPress={() =>
+            navigation.navigate('Map')
+          }
+        />
+        <BigAction
+          icon={<WifiOff />}
+          label="Offline"
+          onPress={() =>
+            navigation.navigate('Offline')
+          }
+        />
+      </View>
+
+      {/* MAP PLACEHOLDER */}
+      <View style={styles.mapBox}>
+        <Text style={styles.mapText}>
+          Map preview here
+        </Text>
       </View>
 
       {/* SOS */}
-      <TouchableOpacity style={styles.sosButton}>
-        <Image
-          source={require('../../../assets/images/icons/sos-red.png')}
-          style={styles.sosImage}
-        />
+      <TouchableOpacity
+        style={styles.sosButton}
+        onPress={() =>
+          navigation.navigate('SOS')
+        }
+      >
+        <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-function Action({ icon, label }: any) {
+function BigAction({
+  icon,
+  label,
+  onPress,
+}: any) {
   return (
-    <View style={styles.actionCard}>
+    <TouchableOpacity
+      style={styles.bigActionCard}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
       {React.cloneElement(icon, {
-        size: 22,
+        size: 26,
         color: '#3B82F6',
       })}
-      <Text style={styles.actionText}>{label}</Text>
-    </View>
+      <Text style={styles.bigActionText}>
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -91,20 +160,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B1220',
     padding: 16,
   },
+
   header: {
+    marginTop: 20,
+    marginBottom: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
   },
-  profileRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-  },
+
   greeting: {
     color: '#94A3B8',
     fontSize: 13,
@@ -114,65 +177,88 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+
   cardRow: {
     flexDirection: 'row',
     gap: 12,
+    marginBottom: 18,
   },
-  card: {
+
+  statusCard: {
     flex: 1,
     backgroundColor: '#111827',
-    padding: 16,
-    borderRadius: 14,
+    padding: 18,
+    borderRadius: 16,
   },
+
   cardTitle: {
     color: '#22C55E',
-    marginTop: 8,
+    marginTop: 10,
     fontWeight: '600',
   },
+
   cardSub: {
     color: '#9CA3AF',
-    marginTop: 4,
+    marginTop: 6,
   },
+
   temp: {
     color: '#FFF',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
   },
-  actions: {
+
+  actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 20,
+    marginBottom: 22,
   },
-  actionCard: {
+
+  bigActionCard: {
     flex: 1,
+    height: 110,
     backgroundColor: '#111827',
-    padding: 14,
-    borderRadius: 14,
+    borderRadius: 18,
+    justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 4,
   },
-  actionText: {
+
+  bigActionText: {
     color: '#FFF',
-    marginTop: 6,
-    fontSize: 13,
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: '500',
   },
+
   mapBox: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    overflow: 'hidden',
     height: 180,
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  mapImage: {
-    width: '100%',
-    height: '100%',
+
+  mapText: {
+    color: '#9CA3AF',
   },
+
   sosButton: {
     position: 'absolute',
     bottom: 30,
     right: 20,
+    backgroundColor: '#DC2626',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
   },
-  sosImage: {
-    width: 56,
-    height: 56,
+
+  sosText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 16,
   },
 });

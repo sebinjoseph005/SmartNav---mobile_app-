@@ -30,18 +30,17 @@ const EmailLoginScreen = () => {
     try {
       setIsLoading(true);
 
-      const { data, error } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (error) {
         Alert.alert('Sign in failed', error.message);
         return;
       }
 
-      // ✅ IMPORTANT FIX — GO TO MAIN, NOT HOME
+      // ✅ CORRECT: enter main app (tabs → home dashboard)
       navigation.replace('Main');
     } catch (err: any) {
       Alert.alert('Sign in error', String(err));
@@ -55,7 +54,7 @@ const EmailLoginScreen = () => {
       {/* Back → Register */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => navigation.goBack()}
+        onPress={() => navigation.replace('Register')}
       >
         <Text style={styles.backText}>←</Text>
       </TouchableOpacity>
@@ -70,9 +69,7 @@ const EmailLoginScreen = () => {
 
         <Text style={styles.subtitle}>
           Welcome back to your{' '}
-          <Text style={styles.highlight}>
-            safety ecosystem
-          </Text>
+          <Text style={styles.highlight}>safety ecosystem</Text>.
         </Text>
 
         <TextInput
@@ -94,11 +91,7 @@ const EmailLoginScreen = () => {
             value={password}
             onChangeText={setPassword}
           />
-          <TouchableOpacity
-            onPress={() =>
-              setShowPassword(!showPassword)
-            }
-          >
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <Text style={styles.showText}>
               {showPassword ? 'Hide' : 'Show'}
             </Text>
@@ -125,9 +118,7 @@ const EmailLoginScreen = () => {
         </View>
 
         <TouchableOpacity style={styles.googleButton}>
-          <Text style={styles.googleText}>
-            Continue with Google
-          </Text>
+          <Text style={styles.googleText}>Continue with Google</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
