@@ -35,23 +35,33 @@ export default function AIItineraryResult() {
       >
         {/* HEADER */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
             <ArrowLeft color="#fff" size={22} />
           </TouchableOpacity>
 
-          <View style={{ alignItems: 'center' }}>
-            <Text style={styles.title}>{destination || 'Your Trip'}</Text>
-            <Text style={styles.subtitle}>
+          <View style={styles.headerContent}>
+            <Text style={styles.title} numberOfLines={2}>
+              {destination || 'Your Trip'}
+            </Text>
+            <Text style={styles.subtitle} numberOfLines={1}>
               AI Generated • {interests?.join(', ') || 'Custom'}
               {isMockData && ' • Demo'}
             </Text>
           </View>
 
-          <View style={{ width: 22 }} />
+          <View style={styles.headerRight} />
         </View>
 
         {/* DAY TABS */}
-        <View style={styles.dayTabs}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.dayTabsContainer}
+          contentContainerStyle={styles.dayTabsContent}
+        >
           {Array.from({ length: totalDays }, (_, i) => i + 1).map(d => (
             <TouchableOpacity
               key={d}
@@ -71,32 +81,7 @@ export default function AIItineraryResult() {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
-
-        {/* SAFETY MODE */}
-        <View style={styles.safetyCard}>
-          <Shield color="#3B82F6" size={20} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.safetyTitle}>Safety Mode</Text>
-            <Text style={styles.safetySub}>
-              Highlight crowds & zones
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.toggle,
-              safetyMode && styles.toggleActive,
-            ]}
-            onPress={() => setSafetyMode(!safetyMode)}
-          >
-            <View
-              style={[
-                styles.toggleDot,
-                safetyMode && styles.toggleDotActive,
-              ]}
-            />
-          </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* TIMELINE */}
         {currentDayActivities.length > 0 ? (
@@ -157,12 +142,20 @@ function TimelineItem({
 
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{title}</Text>
+          <View style={styles.cardTitleContainer}>
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {title}
+            </Text>
+          </View>
           <Text style={styles.rating}>⭐ {rating}</Text>
         </View>
 
-        <Text style={styles.subtitleText}>{subtitle}</Text>
-        <Text style={styles.info}>{info}</Text>
+        <Text style={styles.subtitleText} numberOfLines={2}>
+          {subtitle}
+        </Text>
+        <Text style={styles.info} numberOfLines={3}>
+          {info}
+        </Text>
 
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{badge}</Text>
@@ -187,21 +180,54 @@ function ActionBtn({ icon, label, onPress }: any) {
 /* --------- STYLES --------- */
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B1220' },
-  container: { padding: 16, paddingTop: 40 },
+  root: { 
+    flex: 1, 
+    backgroundColor: '#0B1220' 
+  },
+  container: { 
+    padding: 16, 
+    paddingTop: 40 
+  },
 
+  // Fixed Header with proper alignment
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Align items at the top
+    marginBottom: 20,
+    minHeight: 60, // Ensure minimum height
   },
-  title: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  subtitle: { color: '#94A3B8', fontSize: 12 },
+  backButton: {
+    marginTop: 4, // Align icon with first line of text
+    width: 30, // Fixed width for back button area
+  },
+  headerContent: {
+    flex: 1,
+    marginHorizontal: 12, // Space between back button and content
+    justifyContent: 'center',
+  },
+  headerRight: {
+    width: 30, // Balance the layout with back button
+  },
+  title: { 
+    color: '#fff', 
+    fontSize: 18, 
+    fontWeight: '600',
+    lineHeight: 24, // Proper line height for wrapping
+    marginBottom: 4,
+    // Allow text to wrap naturally
+  },
+  subtitle: { 
+    color: '#94A3B8', 
+    fontSize: 12,
+    lineHeight: 16,
+  },
 
-  dayTabs: {
-    flexDirection: 'row',
+  dayTabsContainer: {
+    marginBottom: 20,
+  },
+  dayTabsContent: {
     gap: 10,
-    marginVertical: 20,
+    paddingHorizontal: 2,
   },
   dayTab: {
     paddingHorizontal: 14,
@@ -209,43 +235,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#111827',
   },
-  dayTabActive: { backgroundColor: '#2563EB' },
-  dayText: { color: '#94A3B8' },
-  dayTextActive: { color: '#fff', fontWeight: '600' },
-
-  safetyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111827',
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 16,
-    gap: 12,
+  dayTabActive: { 
+    backgroundColor: '#2563EB' 
   },
-  safetyTitle: { color: '#fff', fontWeight: '600' },
-  safetySub: { color: '#94A3B8', fontSize: 12 },
-
-  toggle: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#1F2933',
-    padding: 3,
+  dayText: { 
+    color: '#94A3B8' 
   },
-  toggleActive: { backgroundColor: '#2563EB' },
-  toggleDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#64748B',
-  },
-  toggleDotActive: {
-    backgroundColor: '#fff',
-    marginLeft: 20,
+  dayTextActive: { 
+    color: '#fff', 
+    fontWeight: '600' 
   },
 
-  timeline: { marginBottom: 20 },
-  time: { color: '#94A3B8', marginBottom: 6 },
+  timeline: { 
+    marginBottom: 20 
+  },
+  time: { 
+    color: '#94A3B8', 
+    marginBottom: 6,
+    fontSize: 13,
+  },
 
   card: {
     backgroundColor: '#111827',
@@ -255,21 +263,51 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
-  cardTitle: { color: '#fff', fontWeight: '600' },
-  rating: { color: '#FACC15' },
-  subtitleText: { color: '#94A3B8', marginTop: 4 },
-  info: { color: '#64748B', marginTop: 6 },
+  cardTitleContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  cardTitle: { 
+    color: '#fff', 
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 20,
+    // Allow title to wrap
+  },
+  rating: { 
+    color: '#FACC15',
+    fontSize: 13,
+    flexShrink: 0,
+    marginTop: 2, // Align with first line of title
+  },
+  subtitleText: { 
+    color: '#94A3B8', 
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  info: { 
+    color: '#64748B', 
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 8,
+  },
 
   badge: {
     alignSelf: 'flex-start',
-    marginTop: 8,
     backgroundColor: '#064E3B',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  badgeText: { color: '#22C55E', fontSize: 12 },
+  badgeText: { 
+    color: '#22C55E', 
+    fontSize: 11,
+    fontWeight: '500',
+  },
 
   actions: {
     flexDirection: 'row',
@@ -285,7 +323,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  actionText: { color: '#fff', fontSize: 12 },
+  actionText: { 
+    color: '#fff', 
+    fontSize: 12 
+  },
 
   sos: {
     position: 'absolute',
@@ -298,5 +339,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sosText: { color: '#fff', fontWeight: '700' },
+  sosText: { 
+    color: '#fff', 
+    fontWeight: '700',
+    fontSize: 15,
+  },
 });

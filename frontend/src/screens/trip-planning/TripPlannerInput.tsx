@@ -51,9 +51,9 @@ export default function TripPlannerInput() {
     return nextWeek.toISOString().split('T')[0];
   });
   
-  // Temporary dates for calendar selection
-  const [tempFromDate, setTempFromDate] = useState('');
-  const [tempToDate, setTempToDate] = useState('');
+  // Temporary dates for calendar selection (SkyScanner style)
+  const [tempStartDate, setTempStartDate] = useState('');
+  const [tempEndDate, setTempEndDate] = useState('');
   const [selectedRange, setSelectedRange] = useState({});
   
   const [showCalendar, setShowCalendar] = useState(false);
@@ -85,101 +85,69 @@ export default function TripPlannerInput() {
     });
   };
 
-  // Handle opening calendar for specific date
+  // Handle opening calendar (Skyscanner style - always starts fresh)
   const openCalendarFor = (forDate: 'from' | 'to') => {
     setSelectingFor(forDate);
     
-    // Set temporary dates to current display dates
-    setTempFromDate(fromDate);
-    setTempToDate(toDate);
-    
-    // Mark existing range if both dates exist
-    if (fromDate && toDate) {
-      const range = {};
-      const start = new Date(fromDate);
-      const end = new Date(toDate);
-      
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
-        range[dateStr] = {
-          color: d.getTime() === start.getTime() ? '#2563EB' : 
-                 d.getTime() === end.getTime() ? '#2563EB' : '#3B82F6',
-          textColor: 'white',
-          startingDay: d.getTime() === start.getTime(),
-          endingDay: d.getTime() === end.getTime(),
-        };
-      }
-      setSelectedRange(range);
-    }
+    // Always start fresh - don't preset any dates
+    setTempStartDate('');
+    setTempEndDate('');
+    setSelectedRange({});
     
     setShowCalendar(true);
   };
 
-  // Handle date selection in calendar
-  const handleDateSelect = (day: any) => {
+  // SkyScanner-style date selection
+  const handleSkyScannerDateSelect = (day: any) => {
     const selectedDate = day.dateString;
     
-    if (selectingFor === 'from') {
-      setTempFromDate(selectedDate);
-      
-      // If tempToDate exists and selected date is after toDate, clear toDate
-      if (tempToDate && selectedDate > tempToDate) {
-        setTempToDate('');
+    // If no start date is selected, set as start (1st click)
+    if (!tempStartDate) {
+      setTempStartDate(selectedDate);
+      setTempEndDate('');
+      updateRangeVisualization(selectedDate, '');
+    } 
+    // If start date is selected but no end date, set as end (2nd click)
+    else if (!tempEndDate) {
+      // If selected date is before start date, swap them
+      if (new Date(selectedDate) < new Date(tempStartDate)) {
+        setTempEndDate(tempStartDate);
+        setTempStartDate(selectedDate);
+        updateRangeVisualization(selectedDate, tempStartDate);
+      } else {
+        setTempEndDate(selectedDate);
+        updateRangeVisualization(tempStartDate, selectedDate);
       }
-      
-      // Update range visualization
-      updateRangeVisualization(selectedDate, tempToDate);
-      
-    } else if (selectingFor === 'to') {
-      setTempToDate(selectedDate);
-      
-      // If tempFromDate exists and selected date is before fromDate, clear fromDate
-      if (tempFromDate && selectedDate < tempFromDate) {
-        setTempFromDate('');
-      }
-      
-      // Update range visualization
-      updateRangeVisualization(tempFromDate, selectedDate);
+    }
+    // If both dates are selected, reset and start fresh with new date (3rd click becomes 1st click again)
+    else {
+      setTempStartDate(selectedDate);
+      setTempEndDate('');
+      updateRangeVisualization(selectedDate, '');
     }
   };
 
   // Update range visualization
   const updateRangeVisualization = (startDateStr: string, endDateStr: string) => {
-    if (!startDateStr || !endDateStr) {
-      // If only one date is selected, show just that date
+    if (!startDateStr) {
+      setSelectedRange({});
+      return;
+    }
+    
+    if (!endDateStr) {
+      // Only start date is selected
       const singleRange = {};
-      if (startDateStr) {
-        singleRange[startDateStr] = {
-          startingDay: true,
-          color: '#2563EB',
-          textColor: 'white',
-        };
-      }
-      if (endDateStr) {
-        singleRange[endDateStr] = {
-          endingDay: true,
-          color: '#2563EB',
-          textColor: 'white',
-        };
-      }
+      singleRange[startDateStr] = {
+        startingDay: true,
+        endingDay: true,
+        color: '#2563EB',
+        textColor: 'white',
+      };
       setSelectedRange(singleRange);
       return;
     }
     
-    // Make sure dates are in correct order
-    const startDate = new Date(startDateStr);
-    const endDate = new Date(endDateStr);
-    
-    if (startDate > endDate) {
-      // Swap dates if they're in wrong order
-      const temp = startDateStr;
-      startDateStr = endDateStr;
-      endDateStr = temp;
-      setTempFromDate(startDateStr);
-      setTempToDate(endDateStr);
-    }
-    
-    // Create range visualization
+    // Both dates are selected
     const range = {};
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
@@ -200,29 +168,66 @@ export default function TripPlannerInput() {
 
   // Apply dates when "Apply Dates" is clicked
   const applyDates = () => {
-    if (tempFromDate && tempToDate) {
-      // Ensure dates are in correct order
-      let finalFromDate = tempFromDate;
-      let finalToDate = tempToDate;
-      
-      if (new Date(tempFromDate) > new Date(tempToDate)) {
-        // Swap if from date is after to date
-        finalFromDate = tempToDate;
-        finalToDate = tempFromDate;
+    if (tempStartDate) {
+      // If only start date is selected (single day trip)
+      if (!tempEndDate) {
+        setFromDate(tempStartDate);
+        setToDate(tempStartDate); // Same day for single day trip
+      } 
+      // If both dates are selected
+      else {
+        // Ensure dates are in correct order
+        const startDate = new Date(tempStartDate);
+        const endDate = new Date(tempEndDate);
+        
+        if (startDate > endDate) {
+          // Swap if start date is after end date
+          setFromDate(tempEndDate);
+          setToDate(tempStartDate);
+        } else {
+          setFromDate(tempStartDate);
+          setToDate(tempEndDate);
+        }
       }
-      
-      setFromDate(finalFromDate);
-      setToDate(finalToDate);
       setShowCalendar(false);
       setSelectingFor(null);
     }
   };
 
-  // Clear temporary date selection
+  // Clear both date selections
   const clearTempDates = () => {
-    setTempFromDate('');
-    setTempToDate('');
+    setTempStartDate('');
+    setTempEndDate('');
     setSelectedRange({});
+  };
+
+  // Clear specific date (X button functionality)
+  const clearSpecificDate = (dateType: 'from' | 'to') => {
+    if (dateType === 'from') {
+      setFromDate('');
+      if (!toDate) {
+        // If both are empty, set default dates
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setFromDate(tomorrow.toISOString().split('T')[0]);
+        
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 8);
+        setToDate(nextWeek.toISOString().split('T')[0]);
+      }
+    } else {
+      setToDate('');
+      if (!fromDate) {
+        // If from is also empty, set defaults
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setFromDate(tomorrow.toISOString().split('T')[0]);
+        
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 8);
+        setToDate(nextWeek.toISOString().split('T')[0]);
+      }
+    }
   };
 
   // Close calendar without applying
@@ -230,8 +235,8 @@ export default function TripPlannerInput() {
     setShowCalendar(false);
     setSelectingFor(null);
     // Reset temporary dates to empty
-    setTempFromDate('');
-    setTempToDate('');
+    setTempStartDate('');
+    setTempEndDate('');
   };
 
   // Update custom input when slider changes
@@ -394,6 +399,15 @@ export default function TripPlannerInput() {
                 {formatDisplayDate(fromDate)}
               </Text>
             </View>
+            {fromDate && (
+              <TouchableOpacity
+                style={styles.clearDateButton}
+                onPress={() => clearSpecificDate('from')}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X color="#94A3B8" size={14} />
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
 
           {/* TO DATE */}
@@ -408,6 +422,15 @@ export default function TripPlannerInput() {
                 {formatDisplayDate(toDate)}
               </Text>
             </View>
+            {toDate && (
+              <TouchableOpacity
+                style={styles.clearDateButton}
+                onPress={() => clearSpecificDate('to')}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X color="#94A3B8" size={14} />
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -622,15 +645,15 @@ export default function TripPlannerInput() {
 
             {/* Instructions */}
             <Text style={styles.calendarSubtitle}>
-              {!tempFromDate ? 'Select start date' : 
-               !tempToDate ? 'Select end date' : 
+              {!tempStartDate ? 'Select start date' : 
+               !tempEndDate ? 'Select end date' : 
                'Both dates selected - Click "Apply Dates" to confirm'}
             </Text>
 
             {/* Calendar */}
             <RNCalendar
               minDate={new Date().toISOString().split('T')[0]}
-              onDayPress={handleDateSelect}
+              onDayPress={handleSkyScannerDateSelect}
               markedDates={selectedRange}
               markingType="period"
               theme={{
@@ -655,22 +678,16 @@ export default function TripPlannerInput() {
 
             {/* Selected Dates */}
             <View style={styles.selectedDatesContainer}>
-              <View style={[
-                styles.selectedDateBox,
-                selectingFor === 'from' && styles.selectedDateBoxActive
-              ]}>
+              <View style={styles.selectedDateBox}>
                 <Text style={styles.selectedDateLabel}>From</Text>
                 <Text style={styles.selectedDateValue}>
-                  {tempFromDate ? formatDisplayDate(tempFromDate) : 'Not selected'}
+                  {tempStartDate ? formatDisplayDate(tempStartDate) : 'Not selected'}
                 </Text>
               </View>
-              <View style={[
-                styles.selectedDateBox,
-                selectingFor === 'to' && styles.selectedDateBoxActive
-              ]}>
+              <View style={styles.selectedDateBox}>
                 <Text style={styles.selectedDateLabel}>To</Text>
                 <Text style={styles.selectedDateValue}>
-                  {tempToDate ? formatDisplayDate(tempToDate) : 'Not selected'}
+                  {tempEndDate ? formatDisplayDate(tempEndDate) : 'Not selected'}
                 </Text>
               </View>
             </View>
@@ -684,9 +701,9 @@ export default function TripPlannerInput() {
                 <Text style={styles.clearButtonText}>Clear</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.applyButton, (!tempFromDate || !tempToDate) && styles.applyButtonDisabled]}
+                style={[styles.applyButton, !tempStartDate && styles.applyButtonDisabled]}
                 onPress={applyDates}
-                disabled={!tempFromDate || !tempToDate}
+                disabled={!tempStartDate}
               >
                 <Text style={styles.applyButtonText}>Apply Dates</Text>
               </TouchableOpacity>
@@ -768,11 +785,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
     borderRadius: 14,
     padding: 14,
-  },
-  destinationInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   inputText: {
     color: '#fff',
@@ -812,6 +826,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
+  },
+  clearDateButton: {
+    padding: 4,
   },
 
   card: {
@@ -1009,117 +1026,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  // Destination Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'flex-end',
-  },
-  destinationContainer: {
-    backgroundColor: '#111827',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 30,
-    maxHeight: '80%',
-  },
-  destinationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  destinationTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1F2933',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 20,
-    gap: 10,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-  },
-  sectionTitle: {
-    color: '#94A3B8',
-    fontSize: 14,
-    marginBottom: 12,
-    fontWeight: '500',
-  },
-  destinationList: {
-    maxHeight: 400,
-  },
-  destinationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1F2933',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    gap: 12,
-  },
-  destinationItemSelected: {
-    backgroundColor: '#1E3A8A',
-    borderWidth: 1,
-    borderColor: '#2563EB',
-  },
-  destinationIcon: {
-    fontSize: 24,
-  },
-  destinationInfo: {
-    flex: 1,
-  },
-  destinationName: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  destinationCountry: {
-    color: '#94A3B8',
-    fontSize: 12,
-  },
-  selectedIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#fff',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  emptySubtext: {
-    color: '#94A3B8',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-
   // Calendar Styles
   calendarContainer: {
     backgroundColor: '#111827',
@@ -1127,7 +1033,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     padding: 20,
     paddingBottom: 30,
-    maxHeight: '80%',
+    maxHeight: '90%',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -1161,11 +1069,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginHorizontal: 5,
-  },
-  selectedDateBoxActive: {
-    backgroundColor: '#1E3A8A',
-    borderWidth: 1,
-    borderColor: '#2563EB',
   },
   selectedDateLabel: {
     color: '#94A3B8',
@@ -1205,6 +1108,13 @@ const styles = StyleSheet.create({
   applyButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    padding: 20,
   },
 
   suggestionsBox: {
