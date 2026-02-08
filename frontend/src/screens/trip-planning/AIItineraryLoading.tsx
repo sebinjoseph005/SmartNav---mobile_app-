@@ -82,29 +82,27 @@ export default function AIItineraryLoading() {
         }, 500);
       } catch (error: any) {
         clearInterval(interval);
-        console.error('❌ Backend API failed:', error);
-        
-        // Use fallback mock data
-        console.log('⚠️ Using fallback data');
-        const mockItinerary = {
+        console.error('❌ ========== BACKEND API FAILED ==========');
+        console.error('Error message:', error.message);
+        console.error('Error type:', error.constructor.name);
+        console.error('Full error:', JSON.stringify(error, null, 2));
+        console.error('API URL being called:', 'http://10.242.113.88:3000/api/trip/generate');
+        console.error('Request params:', JSON.stringify({
           destination: route.params.destination,
-          days: calculateDays(route.params.fromDate, route.params.toDate),
-          budget: route.params.budget,
-          currency: route.params.currency,
-          interests: route.params.interests,
-          timeline: generateMockTimeline(route.params),
-        };
+          lat: route.params.lat,
+          lon: route.params.lon,
+          fromDate: route.params.fromDate,
+          toDate: route.params.toDate,
+        }, null, 2));
         
-        setProgress(100);
-        setStepText('Finalizing your trip…');
+        // SHOW ERROR INSTEAD OF MOCK DATA
+        setStepText('Failed to connect to server');
         
+        // Navigate back with error message
         setTimeout(() => {
-          navigation.replace('AIItineraryResult', {
-            ...route.params,
-            itinerary: mockItinerary,
-            isMockData: true,
-          });
-        }, 500);
+          alert(`Cannot connect to backend server!\n\nError: ${error.message}\n\nMake sure:\n1. Backend is running on port 3000\n2. Your device is on the same WiFi\n3. IP address is correct: 10.242.113.88`);
+          navigation.goBack();
+        }, 1000);
       }
     };
 

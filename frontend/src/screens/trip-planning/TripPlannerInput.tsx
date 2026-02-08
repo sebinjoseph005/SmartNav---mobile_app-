@@ -320,7 +320,7 @@ export default function TripPlannerInput() {
       } finally {
         setIsSearching(false);
       }
-    }, 510);
+    }, 380);
   };
 
   // Calculate display amount (either custom or slider)

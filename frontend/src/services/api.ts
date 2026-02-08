@@ -43,18 +43,27 @@ export const generateTripItinerary = async (tripData: {
   interests: string[];
 }) => {
   try {
-    console.log('🚀 Calling API:', `${API_URL}/trip/generate`);
-    console.log('📦 Request data:', {
+    const apiUrl = `${API_URL}/trip/generate`;
+    
+    console.log('\n========================================');
+    console.log('🚀 CALLING BACKEND API');
+    console.log('========================================');
+    console.log('API URL:', apiUrl);
+    console.log('Full URL:', `http://${LOCAL_IP}:3000/api/trip/generate`);
+    console.log('Data being sent:', JSON.stringify({
       destination: tripData.destination,
       lat: tripData.lat,
       lon: tripData.lon,
-      days: calculateDays(tripData.fromDate, tripData.toDate),
+      fromDate: tripData.fromDate,
+      toDate: tripData.toDate,
+      travelers: tripData.travelers,
       budget: tripData.budget,
       currency: tripData.currency,
       interests: tripData.interests,
-    });
+    }, null, 2));
+    console.log('========================================\n');
 
-    const response = await fetch(`${API_URL}/trip/generate`, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,26 +73,54 @@ export const generateTripItinerary = async (tripData: {
         destination: tripData.destination,
         lat: tripData.lat || 0,
         lon: tripData.lon || 0,
-        days: calculateDays(tripData.fromDate, tripData.toDate),
+        fromDate: tripData.fromDate,
+        toDate: tripData.toDate,
+        travelers: tripData.travelers,
         budget: tripData.budget,
         currency: tripData.currency,
         interests: tripData.interests,
       }),
     });
 
-    console.log('📡 Response status:', response.status);
+    console.log('\n========================================');
+    console.log('📡 BACKEND RESPONSE');
+    console.log('========================================');
+    console.log('Status:', response.status, response.statusText);
+    console.log('Headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+    console.log('========================================\n');
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ API Error:', errorText);
+      console.error('\n❌ API ERROR RESPONSE:', errorText);
       throw new Error(`API Error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    console.log('✅ API Success:', result);
+    
+    console.log("API RESPONSE:", JSON.stringify(result, null, 2));
+    
+    console.log('\n========================================');
+    console.log('✅ API SUCCESS');
+    console.log('========================================');
+    console.log('Result structure:', {
+      hasItinerary: !!result.itinerary,
+      destination: result.itinerary?.destination,
+      days: result.itinerary?.days,
+      timelineDays: result.itinerary?.timeline?.length,
+      isMockData: result.itinerary?.isMockData,
+      firstActivity: result.itinerary?.timeline?.[0]?.activities?.[0]?.title
+    });
+    console.log('========================================\n');
+    
     return result;
   } catch (error: any) {
-    console.error('❌ Network Error:', error.message);
+    console.error('\n========================================');
+    console.error('❌ NETWORK/API ERROR');
+    console.error('========================================');
+    console.error('Error type:', error.constructor?.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('========================================\n');
     throw new Error(`Network Error: ${error.message}`);
   }
 };

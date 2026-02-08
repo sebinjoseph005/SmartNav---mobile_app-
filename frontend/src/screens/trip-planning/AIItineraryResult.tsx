@@ -23,9 +23,20 @@ export default function AIItineraryResult() {
 
   const { destination, itinerary, budget, currency, interests, isMockData } = route.params || {};
 
+  // Debug logging
+  console.log('🔍 AIItineraryResult received params:', {
+    destination,
+    hasItinerary: !!itinerary,
+    itinerary: itinerary,
+    isMockData,
+  });
+
   // Get activities for current day
   const currentDayActivities = itinerary?.timeline?.[day - 1]?.activities || [];
   const totalDays = itinerary?.timeline?.length || 4;
+  
+  console.log('📅 Current day:', day, 'Total days:', totalDays);
+  console.log('🎯 Activities for day:', currentDayActivities.length);
 
   return (
     <View style={styles.root}>

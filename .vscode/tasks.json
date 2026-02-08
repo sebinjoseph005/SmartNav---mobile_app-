@@ -1,0 +1,36 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Test trip generate endpoint",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$body = @{ destination='Kochi'; lat=0; lon=0; fromDate='2026-01-20'; toDate='2026-01-22'; travelers=2; budget=3000; currency='₹'; interests=@('Food','History') } | ConvertTo-Json -Depth 5; Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/trip/generate -ContentType 'application/json' -Body $body | ConvertTo-Json -Depth 10"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "Test trip generate endpoint (node)",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"(async()=>{const body={destination:'Kochi',lat:0,lon:0,fromDate:'2026-01-20',toDate:'2026-01-22',travelers:2,budget:3000,currency:'INR',interests:['Food','History']};const res=await fetch('http://localhost:3000/api/trip/generate',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)});const text=await res.text();console.log('status',res.status);console.log(text);process.exit(res.ok?0:1);})().catch(e=>{console.error(e);process.exit(1);});"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "Test trip generate endpoint (node safe quotes)",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"(async()=>{const body={destination:\"Kochi\",lat:0,lon:0,fromDate:\"2026-01-20\",toDate:\"2026-01-22\",travelers:2,budget:3000,currency:\"INR\",interests:[\"Food\",\"History\"]};const res=await fetch(\"http://localhost:3000/api/trip/generate\",{method:\"POST\",headers:{\"Content-Type\":\"application/json\",\"Accept\":\"application/json\"},body:JSON.stringify(body)});let payload=null;try{payload=await res.json();}catch{const t=await res.text();payload={raw:t};}console.log(JSON.stringify({status:res.status,ok:res.ok,payload},null,2));process.exit(res.ok?0:1);})().catch(e=>{console.error(e);process.exit(1);});"
+			],
+			"isBackground": false
+		}
+	]
+}
