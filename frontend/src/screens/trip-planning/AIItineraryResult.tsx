@@ -47,7 +47,7 @@ export default function AIItineraryResult() {
         {/* HEADER */}
         <View style={styles.header}>
           <TouchableOpacity 
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate('TripPlanner')}
             style={styles.backButton}
           >
             <ArrowLeft color="#fff" size={22} />

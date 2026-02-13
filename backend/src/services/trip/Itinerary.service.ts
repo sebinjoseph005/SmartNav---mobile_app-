@@ -1,5 +1,4 @@
 import { MapsAPIService } from "../external/MapsAPI.service";
-import { RealPlacesDBService } from "../external/RealPlacesDB.service";
 import { OpenAIService } from "../ai/OpenAI.service";
 
 function isValidCoordinate(lat: number, lon: number) {
@@ -126,49 +125,14 @@ export class ItineraryService {
       }
       console.log('========================================\n');
       
-      // STEP 2: Try local database (only for Indian cities: Delhi, Mumbai, Kochi, Bangalore)
-      console.log('🗄️ Checking local database for backup places...');
-      const dbPlaces = hasCoords
-        ? RealPlacesDBService.getRealPlaces(lat, lon, interests)
-        : RealPlacesDBService.getRealPlacesByDestination(destination, interests);
-      
-      if (dbPlaces && dbPlaces.length > 0) {
-        const mappedDbPlaces = dbPlaces.map(p => ({
-          name: p.name,
-          lat: p.lat,
-          lon: p.lon,
-          rating: p.rating,
-          categories: p.category,
-          address: p.description,
-          interest: p.category,
-        }));
-        
-        if (places.length === 0) {
-          // No Foursquare results, use local DB (Indian cities only)
-          places = mappedDbPlaces;
-          placesSource = 'local-database';
-          console.log(`✅ Using ${places.length} places from local database (Indian cities)`);
-        } else {
-          // Foursquare worked, supplement with local DB for richer data
-          places = [...places, ...mappedDbPlaces];
-          placesSource = 'foursquare+database';
-          console.log(`✅ Enhanced with ${mappedDbPlaces.length} local places (total: ${places.length})`);
-        }
-      } else {
-        if (placesSource === 'none') {
-          console.warn('⚠️ Destination not in local database (only Indian cities available)');
-        } else {
-          console.log('   No local database matches (this is OK for international destinations)');
-        }
-      }
-      
+      // Remove mock data - use only Foursquare or AI
       console.log(`📍 Final source: ${placesSource}`);
 
       places = uniqByName(places);
       console.log(`📊 Total unique places: ${places.length}`);
 
       if (places.length === 0) {
-        console.warn('\n⚠️ WARNING: No places found from Foursquare or local database!');
+        console.warn('\n⚠️ WARNING: No places found from Foursquare!');
         console.warn('   - Destination:', destination);
         console.warn('   - This might indicate:');
         console.warn('     • Foursquare API key issue');
@@ -177,7 +141,7 @@ export class ItineraryService {
         console.warn('');
         console.warn('💡 PROCEEDING WITH AI-ONLY PLANNING');
         console.warn('   AI will use its built-in knowledge of', destination);
-        console.warn('   Results may be less accurate than Foursquare-powered planning\n');
+        console.warn('   Results will be generated purely by AI\n');
         
         // Create minimal placeholder for AI to work with
         // AI should use its own knowledge to populate real places
@@ -221,14 +185,23 @@ export class ItineraryService {
           console.error('   Error:', error.message);
           console.error('   Error type:', error.constructor.name);
           if (error.message.includes('vague') || error.message.includes('VAGUE')) {
-            console.error('   ⚠️ AI returned vague titles - this is a quality issue, not an API failure');
-            console.error('   The AI needs better prompting or the validation is too strict');
+            console.error('   ⚠️ AI returned vague titles - rejecting AI output');
+            console.error('   This usually happens when:');
+            console.error('     • AI doesn\'t have good data for this location');
+            console.error('     • The destination is too small/obscure');
+            console.error('     • Network quality affected API response');
           }
           if (error.stack) {
             console.error('   Stack:', error.stack.split('\n').slice(0, 3).join('\n'));
           }
-          console.warn('⚠️ Falling back to heuristic timeline');
-          timeline = null;
+          // Only fallback if we have real places from APIs
+          if (places.length > 0) {
+            console.warn('⚠️ Falling back to heuristic timeline with real places');
+            timeline = null;
+          } else {
+            // No places AND AI failed = throw error instead of returning garbage
+            throw new Error(`Cannot generate quality itinerary for ${destination}: AI failed and no real places found. Please try a more well-known destination or check your API keys.`);
+          }
         }
       } else if (!process.env.GROQ_API_KEY) {
         console.log('ℹ️ GROQ_API_KEY not found, using heuristic timeline');
@@ -351,6 +324,7 @@ export class ItineraryService {
 3. Each activity title MUST be a specific place name (not a description)
 4. DO NOT invent new places - use ONLY what's in the list
 5. DO NOT rename places - copy names EXACTLY
+6. 🌍 ALL OUTPUT MUST BE IN ENGLISH ONLY - No Japanese, Korean, Chinese, Hindi, or any local language scripts
 
 Destination: ${args.destination}
 Days: ${args.days}
@@ -388,7 +362,9 @@ ${JSON.stringify(placesForPrompt, null, 2)}
 - Put 3-5 activities per day
 - Start times between 09:00 AM and 08:00 PM
 - Prioritize places matching: ${args.interests.join(', ')}
-- Estimate realistic costs that sum to roughly ${args.currency} ${args.budget * args.travelers}
+- VARY costs realistically: food (15-25%), history/museums (3-10%), nature (5-12%), shopping (20-35%), adventure (15-30%)
+- Total cost should sum to approximately ${args.currency} ${args.budget * args.travelers}
+- Higher rated places (4.5+) should have slightly higher costs
 - Copy lat/lon from the places list above
 
 🚫 VALIDATION:
@@ -409,6 +385,9 @@ Each title MUST be a specific place name from the list.
 3. Each title must be an actual place name (temple, restaurant, museum, park, etc.)
 4. Use your knowledge of ${args.destination} to suggest real attractions
 5. DO NOT use the city name in activity titles
+6. 🌍 ALL OUTPUT MUST BE IN ENGLISH ONLY - Use English-transliterated names
+7. ✅ Every place MUST have valid coordinates within 20km of ${args.destination}
+8. ❌ If you cannot find specific real places, DO NOT fabricate - return empty timeline
 
 Destination: ${args.destination}
 Days: ${args.days}
@@ -416,16 +395,20 @@ Budget: ${args.currency} ${args.budget * args.travelers} (for ${args.travelers} 
 Budget per day: ${args.currency} ${Math.floor((args.budget * args.travelers) / args.days)}
 User interests: ${args.interests.length ? args.interests.join(', ') : 'General sightseeing'}
 
-Examples of GOOD titles:
+Examples of GOOD titles (ENGLISH ONLY):
 ✅ "Eiffel Tower" (Paris)
-✅ "Senso-ji Temple" (Tokyo)
+✅ "Senso-ji Temple" (Tokyo) - NOT "浅草寺"
 ✅ "Colosseum" (Rome)
-✅ "Tsukiji Fish Market" (Tokyo)
+✅ "Tsukiji Fish Market" (Tokyo) - NOT "築地市場"
+✅ "Fushimi Inari Shrine" (Kyoto) - NOT "伏見稲荷大社"
+✅ "Gyeongbokgung Palace" (Seoul) - NOT "경복궁"
 
 Examples of BAD titles:
 ❌ "Visit Paris"
 ❌ "Explore Tokyo"
 ❌ "Popular spots in Rome"
+❌ "東京タワー" (use "Tokyo Tower" instead)
+❌ "เกาะพีพี" (use "Phi Phi Islands" instead)
 
 📋 REQUIRED JSON FORMAT:
 {
@@ -454,8 +437,13 @@ REQUIREMENTS:
 - 3-5 activities per day
 - Times: 09:00 AM - 08:00 PM
 - Prioritize: ${args.interests.join(', ')}
+- VARY costs realistically: restaurants (15-25%), museums (5-12%), parks/temples (3-8%), activities (20-35%)
 - Total cost ≈ ${args.currency} ${args.budget * args.travelers}
-- EVERY title must be a real place name
+- Higher rated/famous places = higher costs
+- EVERY title must be a real place name in ENGLISH
+- All place names within 20km radius of ${args.destination}
+- NO generic or vague titles - be SPECIFIC
+- If unsure about a place, DO NOT include it
 `;
 
 
@@ -602,16 +590,44 @@ REQUIREMENTS:
       console.log(`\n   Day ${day} places:`);
       
       dayPlaces.forEach((place, idx) => {
-        // Smart cost estimation based on category and budget
-        let cost = 0;
+        // Smart cost estimation with variation based on category, rating, and randomness
+        let baseCostPercent = 0.15; // Default
+        let variationRange = 0.03; // ±3% variation
+        
         if (place.interest === 'Food') {
-          cost = Math.round(budgetPerDay * 0.2); // 20% of daily budget
+          baseCostPercent = 0.18; // 15-21% for food
+          variationRange = 0.05;
         } else if (place.interest === 'History') {
-          cost = Math.round(budgetPerDay * 0.05); // 5% for entry fees
+          baseCostPercent = 0.06; // 3-9% for museums/monuments
+          variationRange = 0.03;
         } else if (place.interest === 'Nature') {
-          cost = Math.round(budgetPerDay * 0.1); // 10% for nature spots
-        } else {
-          cost = Math.round(budgetPerDay * 0.15);
+          baseCostPercent = 0.08; // 5-11% for parks/nature
+          variationRange = 0.03;
+        } else if (place.interest === 'Adventure') {
+          baseCostPercent = 0.22; // 17-27% for adventure activities
+          variationRange = 0.05;
+        } else if (place.interest === 'Shopping') {
+          baseCostPercent = 0.25; // 20-30% for shopping
+          variationRange = 0.05;
+        } else if (place.interest === 'Nightlife') {
+          baseCostPercent = 0.20; // 15-25% for nightlife
+          variationRange = 0.05;
+        }
+        
+        // Add random variation
+        const randomVariation = (Math.random() - 0.5) * 2 * variationRange;
+        const finalPercent = baseCostPercent + randomVariation;
+        
+        // Rating bonus: higher rated places = slightly higher cost (up to +10%)
+        const ratingBonus = place.rating ? (place.rating - 4.0) * 0.02 : 0;
+        
+        let cost = Math.round(budgetPerDay * (finalPercent + ratingBonus));
+        
+        // Round to nearest 50 or 100 for cleaner numbers
+        if (cost > 500) {
+          cost = Math.round(cost / 100) * 100;
+        } else if (cost > 100) {
+          cost = Math.round(cost / 50) * 50;
         }
         
         const activity = {

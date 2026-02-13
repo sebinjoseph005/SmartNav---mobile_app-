@@ -4,7 +4,13 @@ import dotenv from 'dotenv';
 // Ensure environment variables are loaded
 dotenv.config();
 
-const FOURSQUARE_API_KEY = process.env.FOURSQUARE_API_KEY!;
+// OpenStreetMap APIs - No API key needed!
+const OVERPASS_API = 'https://overpass-api.de/api/interpreter';
+const NOMINATIM_API = 'https://nominatim.openstreetmap.org';
+
+// ⚡ GEOCODING CACHE - dramatically speeds up repeated requests
+const geocodeCache = new Map<string, { lat: number; lon: number; timestamp: number }>();
+const GEOCODE_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 function isValidCoordinate(lat: number, lon: number) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
@@ -15,70 +21,157 @@ function isValidCoordinate(lat: number, lon: number) {
   return true;
 }
 
+// Calculate distance between two coordinates (Haversine formula)
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+}
+
+// Map categories to OpenStreetMap tags
+function mapCategoryToOSMTags(categories: string): string[] {
+  const categoryMap: { [key: string]: string[] } = {
+    // Food & Drink
+    'restaurant': ['amenity=restaurant'],
+    'cafe': ['amenity=cafe'],
+    'bar': ['amenity=bar'],
+    'fast_food': ['amenity=fast_food'],
+    
+    // Tourism & Attractions
+    'museum': ['tourism=museum'],
+    'attraction': ['tourism=attraction'],
+    'artwork': ['tourism=artwork'],
+    'viewpoint': ['tourism=viewpoint'],
+    'gallery': ['tourism=gallery'],
+    'theme_park': ['tourism=theme_park'],
+    
+    // Accommodation
+    'hotel': ['tourism=hotel'],
+    'hostel': ['tourism=hostel'],
+    
+    // Shopping
+    'shop': ['shop'],
+    'supermarket': ['shop=supermarket'],
+    'mall': ['shop=mall'],
+    
+    // Services
+    'bank': ['amenity=bank'],
+    'hospital': ['amenity=hospital'],
+    'pharmacy': ['amenity=pharmacy'],
+    
+    // Recreation
+    'park': ['leisure=park'],
+    'garden': ['leisure=garden'],
+  };
+  
+  const tags: string[] = [];
+  const cats = categories.toLowerCase().split(',');
+  
+  for (const cat of cats) {
+    const trimmed = cat.trim();
+    if (categoryMap[trimmed]) {
+      tags.push(...categoryMap[trimmed]);
+    }
+  }
+  
+  // Default fallback if no matches
+  if (tags.length === 0) {
+    tags.push('tourism', 'amenity');
+  }
+  
+  return tags;
+}
+
 export class MapsAPIService {
-  /** Search places by category near a lat/lon */
+  /** Search places by category near a lat/lon using OpenStreetMap Overpass API */
   static async getPlacesByCategory(
     lat: number,
     lon: number,
     categories: string
   ) {
     try {
-      if (!FOURSQUARE_API_KEY) {
-        throw new Error('FOURSQUARE_API_KEY is not configured in .env file');
-      }
-
       if (!isValidCoordinate(lat, lon)) {
-        throw new Error('Invalid coordinates provided for Foursquare ll search');
+        throw new Error('Invalid coordinates provided for OpenStreetMap search');
       }
 
-      const urlObj = new URL('https://places-api.foursquare.com/places/search');
-      urlObj.searchParams.set('ll', `${lat},${lon}`);
-      urlObj.searchParams.set('categories', categories);
-      urlObj.searchParams.set('limit', '50');
-      urlObj.searchParams.set('radius', '20000');
-      urlObj.searchParams.set('sort', 'RATING');
-      const url = urlObj.toString();
+      const radius = 20000; // 20km radius
+      const tags = mapCategoryToOSMTags(categories);
+      
+      // Build Overpass query for multiple tag types
+      const tagQueries = tags.map(tag => {
+        if (tag.includes('=')) {
+          const [key, value] = tag.split('=');
+          return `node["${key}"="${value}"](around:${radius},${lat},${lon});`;
+        } else {
+          return `node["${tag}"](around:${radius},${lat},${lon});`;
+        }
+      }).join('\n  ');
+      
+      const query = `
+        [out:json][timeout:25];
+        (
+          ${tagQueries}
+        );
+        out body 100;
+      `;
 
-      console.log('📡 Calling Foursquare API (new):', url);
-      console.log('🔑 API Key length:', FOURSQUARE_API_KEY?.length);
+      console.log('📡 Calling OpenStreetMap Overpass API...');
 
-      const res = await fetch(url, {
+      const res = await fetch(OVERPASS_API, {
+        method: 'POST',
+        body: query,
         headers: {
-          Authorization: `Bearer ${FOURSQUARE_API_KEY}`,
-          Accept: 'application/json',
-          'X-Places-Api-Version': '2025-06-17',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
 
-      console.log('📊 Foursquare response status:', res.status);
+      console.log('📊 Overpass API response status:', res.status);
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.error('❌ Foursquare API error:', errorText);
-        throw new Error(`Foursquare API failed: ${res.status} - ${errorText}`);
+        console.error('❌ Overpass API error:', errorText);
+        throw new Error(`Overpass API failed: ${res.status} - ${errorText}`);
       }
 
       const data: any = await res.json();
-      console.log(`✅ Foursquare returned ${data.results?.length || 0} places`);
+      console.log(`✅ OpenStreetMap returned ${data.elements?.length || 0} places`);
 
-      if (!data.results || data.results.length === 0) {
-        console.warn('⚠️ No places found from Foursquare');
+      if (!data.elements || data.elements.length === 0) {
+        console.warn('⚠️ No places found from OpenStreetMap');
         return [];
       }
 
-      // Map with complete information
-      const places = data.results.map((p: any) => ({
-        id: p.fsq_id,
-        name: p.name,
-        description: p.categories?.[0]?.name || 'Popular place to visit',
-        categories: p.categories?.[0]?.name,
-        rating: p.rating ? Math.round(p.rating * 10) / 10 : 4.0, // Round to 1 decimal
-        lat: p.geocodes?.main?.latitude,
-        lon: p.geocodes?.main?.longitude,
-        address: p.location?.formatted_address || p.location?.address || 'Address available on map',
-      }));
+      // Filter and map elements that have names
+      const places = data.elements
+        .filter((p: any) => p.tags && p.tags.name)
+        .map((p: any) => {
+          const tags = p.tags || {};
+          const distance = calculateDistance(lat, lon, p.lat, p.lon);
+          
+          // Determine category from tags
+          const category = tags.amenity || tags.tourism || tags.shop || tags.leisure || 'Place';
+          
+          return {
+            id: p.id.toString(),
+            name: tags.name,
+            description: formatCategory(category),
+            categories: formatCategory(category),
+            rating: 4.0, // OSM doesn't provide ratings, use default
+            lat: p.lat,
+            lon: p.lon,
+            address: tags['addr:street'] || tags['addr:city'] || 'Address available on map',
+            distance: distance,
+          };
+        })
+        .sort((a: any, b: any) => a.distance - b.distance); // Sort by distance
 
-      console.log(`📋 Parsed places: ${places.slice(0, 3).map((p: any) => `${p.name} (${p.rating}⭐)`).join(', ')}`);
+      console.log(`📋 Parsed places: ${places.slice(0, 3).map((p: any) => `${p.name} (${p.distance.toFixed(1)}km)`).join(', ')}`);
       
       return places;
     } catch (error: any) {
@@ -90,66 +183,93 @@ export class MapsAPIService {
   /** Search places by category near a destination string (city/place name) */
   static async getPlacesByCategoryNear(near: string, categories: string) {
     try {
-      if (!FOURSQUARE_API_KEY) {
-        throw new Error('FOURSQUARE_API_KEY is not configured in .env file');
-      }
-
       const trimmed = (near || '').trim();
       if (!trimmed) {
-        throw new Error('Destination (near) is required for Foursquare near search');
+        throw new Error('Destination (near) is required for OpenStreetMap search');
       }
 
-      const urlObj = new URL('https://places-api.foursquare.com/places/search');
-      urlObj.searchParams.set('near', trimmed);
-      urlObj.searchParams.set('categories', categories);
-      urlObj.searchParams.set('limit', '50');
-      // radius is not supported with "near" in some Foursquare modes; omit it to be safe.
-      urlObj.searchParams.set('sort', 'RATING');
-      const url = urlObj.toString();
+      // ⚡ Check cache first for faster response
+      const cacheKey = trimmed.toLowerCase();
+      const cached = geocodeCache.get(cacheKey);
+      
+      let lat: number, lon: number;
+      
+      if (cached && Date.now() - cached.timestamp < GEOCODE_CACHE_DURATION) {
+        console.log('✅ Cache hit for geocoding:', trimmed);
+        lat = cached.lat;
+        lon = cached.lon;
+      } else {
+        // Geocode the location using Nominatim with English language preference
+        const geocodeUrl = `${NOMINATIM_API}/search?q=${encodeURIComponent(trimmed)}&format=json&limit=1&accept-language=en`;
+        
+        console.log('📡 Geocoding location with Nominatim:', trimmed);
+        
+        const geoRes = await fetch(geocodeUrl, {
+          headers: {
+            'User-Agent': 'SmartNav-Backend/1.0',
+          },
+        });
 
-      console.log('📡 Calling Foursquare API (new, near):', url);
-      console.log('🔑 API Key length:', FOURSQUARE_API_KEY?.length);
+        if (!geoRes.ok) {
+          throw new Error(`Nominatim geocoding failed: ${geoRes.status}`);
+        }
 
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${FOURSQUARE_API_KEY}`,
-          Accept: 'application/json',
-          'X-Places-Api-Version': '2025-06-17',
-        },
-      });
+        const geoData: any = await geoRes.json();
+        
+        if (!geoData || geoData.length === 0) {
+          console.warn('⚠️ Location not found:', trimmed);
+          throw new Error(`Location "${trimmed}" not found`);
+        }
 
-      console.log('📊 Foursquare response status:', res.status);
+        const location = geoData[0];
+        lat = parseFloat(location.lat);
+        lon = parseFloat(location.lon);
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('❌ Foursquare API error:', errorText);
-        throw new Error(`Foursquare API failed: ${res.status} - ${errorText}`);
+        // Store in cache
+        geocodeCache.set(cacheKey, { lat, lon, timestamp: Date.now() });
+        
+        // Clean old entries if cache gets too large
+        if (geocodeCache.size > 500) {
+          const entries = Array.from(geocodeCache.entries());
+          entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+          entries.slice(0, 250).forEach(([key]) => geocodeCache.delete(key));
+        }
+
+        console.log(`✅ Geocoded "${trimmed}" to (${lat}, ${lon})`);
       }
 
-      const data: any = await res.json();
-      console.log(`✅ Foursquare returned ${data.results?.length || 0} places`);
-
-      if (!data.results || data.results.length === 0) {
-        console.warn('⚠️ No places found from Foursquare');
-        return [];
-      }
-
-      const places = data.results.map((p: any) => ({
-        id: p.fsq_id,
-        name: p.name,
-        description: p.categories?.[0]?.name || 'Popular place to visit',
-        categories: p.categories?.[0]?.name,
-        rating: p.rating ? Math.round(p.rating * 10) / 10 : 4.0,
-        lat: p.geocodes?.main?.latitude,
-        lon: p.geocodes?.main?.longitude,
-        address: p.location?.formatted_address || p.location?.address || 'Address available on map',
-      }));
-
-      console.log(`📋 Parsed places: ${places.slice(0, 3).map((p: any) => `${p.name} (${p.rating}⭐)`).join(', ')}`);
-      return places;
+      // Now search for places near those coordinates
+      return await this.getPlacesByCategory(lat, lon, categories);
     } catch (error: any) {
       console.error('❌ MapsAPIService (near) error:', error.message);
       throw error;
     }
   }
+}
+
+// Format category names to be more readable
+function formatCategory(category: string): string {
+  const categoryMap: { [key: string]: string } = {
+    'restaurant': 'Restaurant',
+    'cafe': 'Café',
+    'bar': 'Bar',
+    'fast_food': 'Fast Food',
+    'hotel': 'Hotel',
+    'museum': 'Museum',
+    'attraction': 'Attraction',
+    'viewpoint': 'Viewpoint',
+    'park': 'Park',
+    'shop': 'Shop',
+    'supermarket': 'Supermarket',
+    'bank': 'Bank',
+    'hospital': 'Hospital',
+    'pharmacy': 'Pharmacy',
+    'artwork': 'Artwork',
+    'gallery': 'Gallery',
+    'theme_park': 'Theme Park',
+    'hostel': 'Hostel',
+    'garden': 'Garden',
+    'mall': 'Mall',
+  };
+  return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
 }

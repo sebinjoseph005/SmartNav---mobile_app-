@@ -40,25 +40,25 @@ app.get('/api/test', (req, res) => {
     message: 'Backend API is working!',
     timestamp: new Date().toISOString(),
     env: {
-      hasFoursquareKey: !!process.env.FOURSQUARE_API_KEY,
+      usingOpenStreetMap: true, // No API key needed!
       hasGroqKey: !!process.env.GROQ_API_KEY,
-      foursquareKeyLength: process.env.FOURSQUARE_API_KEY?.length || 0,
       groqKeyLength: process.env.GROQ_API_KEY?.length || 0,
       nodeEnv: process.env.NODE_ENV || 'development'
     }
   });
 });
 
-// Test Foursquare API directly
-app.get('/api/test/foursquare', async (req, res) => {
+// Test OpenStreetMap API
+app.get('/api/test/osm', async (req, res) => {
   try {
     const { MapsAPIService } = await import('./services/external/MapsAPI.service');
     // Test with Delhi coordinates
-    const places = await MapsAPIService.getPlacesByCategory(28.6139, 77.2090, '13000');
+    const places = await MapsAPIService.getPlacesByCategory(28.6139, 77.2090, 'museum,attraction,restaurant');
     res.json({ 
       success: true, 
+      source: 'OpenStreetMap Overpass API',
       placesCount: places.length,
-      samplePlaces: places.slice(0, 5).map((p: any) => ({ name: p.name, rating: p.rating }))
+      samplePlaces: places.slice(0, 5).map((p: any) => ({ name: p.name, category: p.categories, distance: `${p.distance?.toFixed(1)}km` }))
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
