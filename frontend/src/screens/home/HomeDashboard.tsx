@@ -1,22 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import MapView from 'react-native-maps';
 import * as Location from 'expo-location';
 import {
-  ShieldCheck,
-  Navigation,
-  Route,
   Bell,
-  Cloud,
-  Droplets,
-  CloudRain,
+  User,
+  Calendar,
+  Navigation2,
   DollarSign,
+  Plus,
+  X,
+  Cloud,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
@@ -28,144 +29,353 @@ const getGreeting = () => {
   return 'Good Evening';
 };
 
+const getWeatherInfo = (code: number) => {
+  if (code === 0) return { icon: '☀️', desc: 'CLEAR SKY' };
+  if (code <= 3) return { icon: '⛅', desc: 'PARTLY CLOUDY' };
+  if (code <= 48) return { icon: '🌫️', desc: 'FOGGY' };
+  if (code <= 67) return { icon: '🌧️', desc: 'RAINY' };
+  if (code <= 77) return { icon: '❄️', desc: 'SNOWY' };
+  if (code <= 82) return { icon: '🌦️', desc: 'SHOWERS' };
+  return { icon: '⛈️', desc: 'THUNDERSTORM' };
+};
+
 export default function HomeDashboard() {
   const navigation = useNavigation<any>();
+
   const [name, setName] = useState('Traveler');
-  const [userLocation, setUserLocation] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+  const [location, setLocation] = useState<any>(null);
+  const [weather, setWeather] = useState<any>(null);
+  const [loadingWeather, setLoadingWeather] = useState(false);
+  const [menuExpanded, setMenuExpanded] = useState(false);
+
+  // Animation values for menu items
+  const menuAnim1 = useRef(new Animated.Value(0)).current;
+  const menuAnim2 = useRef(new Animated.Value(0)).current;
+  const menuAnim3 = useRef(new Animated.Value(0)).current;
+  const menuAnim4 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Load user name
-    supabase.auth.getUser().then(({ data }) => {
-      const fullName = data?.user?.user_metadata?.full_name;
-      if (fullName) setName(fullName);
-    });
-
-    // Load location
-    (async () => {
-      const { status } =
-        await Location.requestForegroundPermissionsAsync();
-
-      if (status !== 'granted') return;
-
-      const location =
-        await Location.getCurrentPositionAsync({});
-
-      setUserLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-    })();
+    loadUser();
+    loadLocation();
   }, []);
+
+  // Animate menu items when expanded/collapsed
+  useEffect(() => {
+    if (menuExpanded) {
+      // Reset all animations to 0 first
+      menuAnim1.setValue(0);
+      menuAnim2.setValue(0);
+      menuAnim3.setValue(0);
+      menuAnim4.setValue(0);
+
+      // Then start staggered animation - items appear one by one
+      Animated.stagger(80, [
+        Animated.spring(menuAnim1, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+        }),
+        Animated.spring(menuAnim2, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+        }),
+        Animated.spring(menuAnim3, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+        }),
+        Animated.spring(menuAnim4, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+        }),
+      ]).start();
+    } else {
+      // Reset animations instantly when closing
+      menuAnim1.setValue(0);
+      menuAnim2.setValue(0);
+      menuAnim3.setValue(0);
+      menuAnim4.setValue(0);
+    }
+  }, [menuExpanded]);
+
+  const loadUser = async () => {
+    const { data } = await supabase.auth.getUser();
+    const fullName = data?.user?.user_metadata?.full_name;
+    if (fullName) setName(fullName);
+  };
+
+  const loadLocation = async () => {
+    const { status } =
+      await Location.requestForegroundPermissionsAsync();
+
+    if (status !== 'granted') return;
+
+    const loc = await Location.getCurrentPositionAsync({});
+    setLocation(loc.coords);
+    fetchWeather(loc.coords.latitude, loc.coords.longitude);
+  };
+
+  const fetchWeather = async (lat: number, lon: number) => {
+    try {
+      setLoadingWeather(true);
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`
+      );
+      const data = await res.json();
+      setWeather(data.current_weather);
+      setLoadingWeather(false);
+    } catch (e) {
+      console.log(e);
+      setLoadingWeather(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.name}>
-            Welcome back, <Text style={styles.nameHighlight}>{name}</Text>
+      {/* MAP */}
+      {location ? (
+        <MapView
+          style={StyleSheet.absoluteFillObject}
+          region={{
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          }}
+          showsUserLocation
+        />
+      ) : (
+        <View style={styles.mapFallback}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+        </View>
+      )}
+
+      {/* TOP OVERLAY */}
+      <View style={styles.topOverlay}>
+        {/* HEADER */}
+        <View style={styles.headerCard}>
+          <Text style={styles.greeting}>
+            • {getGreeting()}, <Text style={styles.name}>{name}</Text>
           </Text>
-        </View>
-        <TouchableOpacity style={styles.iconButton}>
-          <Bell size={20} color="#CBD5E1" />
-        </TouchableOpacity>
-      </View>
 
-      {/* STATUS CARDS */}
-      <View style={styles.row}>
-        {/* SECURE CARD WITH GLOW */}
-        <View style={[styles.card, styles.secureCard]}>
-          <ShieldCheck color="#22C55E" size={20} />
-          <Text style={styles.secure}>SECURE</Text>
-          <Text style={styles.sub}>All systems safe</Text>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconBtn}>
+              <Bell size={20} color="#FFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.profileBtn}
+              onPress={() => navigation.navigate('Profile')}
+            >
+              <User size={20} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* ENHANCED WEATHER CARD */}
+        {/* WEATHER */}
         <TouchableOpacity
-          style={[styles.card, styles.weatherCard]}
-          activeOpacity={0.7}
+          style={styles.weatherCard}
           onPress={() => navigation.navigate('WeatherDetails')}
         >
-          <Text style={styles.temp}>24°C</Text>
-          <Text style={styles.weatherDesc}>Partly Cloudy</Text>
-          <View style={styles.warning}>
-            <Text style={styles.warningText}>⚠️ Rain expected</Text>
-          </View>
+          {loadingWeather ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : weather ? (
+            <>
+              <Text style={styles.weatherIcon}>
+                {getWeatherInfo(weather.weathercode).icon}
+              </Text>
+              <View style={styles.weatherInfo}>
+                <Text style={styles.weatherTemp}>
+                  {Math.round(weather.temperature)}°C
+                </Text>
+                <Text style={styles.weatherDesc}>
+                  {getWeatherInfo(weather.weathercode).desc}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.weatherTemp}>--°C</Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* ACTION BUTTONS */}
-      <View style={styles.row}>
-        <Action
-          icon={<Route />}
-          label="Plan Trip"
-          onPress={() =>
-            navigation.navigate('Trip', {
-              screen: 'TripPlanner',
-            })
-          }
-        />
-        <Action
-          icon={<Navigation />}
-          label="Navigate"
-          onPress={() => navigation.navigate('Map', { screen: 'MapMain' })}
-        />
-        <Action
-          icon={<DollarSign />}
-          label="Split Budget"
-          onPress={() => navigation.navigate('BudgetSplit')}
-        />
-      </View>
+      {/* EXPANDABLE MENU - Google Keep Style with Animations */}
+      {menuExpanded && (
+        <View style={styles.expandedMenuContainer}>
+          {/* PLAN TRIP */}
+          <Animated.View
+            style={[
+              styles.menuItemWrapper,
+              {
+                opacity: menuAnim1,
+                transform: [
+                  {
+                    translateY: menuAnim1.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                  {
+                    scale: menuAnim1.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuExpanded(false);
+                navigation.navigate('TripPlanner');
+              }}
+            >
+              <View style={styles.menuIconCircle}>
+                <Calendar size={20} color="#FFF" />
+              </View>
+              <Text style={styles.menuLabel}>Plan Trip</Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-      {/* YOUR LOCATION LABEL (OUTSIDE MAP) */}
-      <Text style={styles.mapLabel}>Your Location</Text>
+          {/* NAVIGATE */}
+          <Animated.View
+            style={[
+              styles.menuItemWrapper,
+              {
+                opacity: menuAnim2,
+                transform: [
+                  {
+                    translateY: menuAnim2.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                  {
+                    scale: menuAnim2.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuExpanded(false);
+                navigation.navigate('Map');
+              }}
+            >
+              <View style={styles.menuIconCircle}>
+                <Navigation2 size={20} color="#FFF" />
+              </View>
+              <Text style={styles.menuLabel}>Navigate</Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-      {/* MAP CARD */}
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={() => navigation.navigate('Map', { screen: 'MapMain' })}
-        style={styles.mapCard}
-      >
-        <View style={styles.mapClip}>
-          {!userLocation ? (
-            <View style={styles.mapLoading}>
-              <ActivityIndicator size="small" color="#3B82F6" />
-              <Text style={styles.loadingText}>
-                Locating you…
-              </Text>
-            </View>
-          ) : (
-            <>
-              <MapView
-                style={StyleSheet.absoluteFillObject}
-                region={{
-                  latitude: userLocation.latitude,
-                  longitude: userLocation.longitude,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-                showsUserLocation
-                scrollEnabled={false}
-                zoomEnabled={false}
-                rotateEnabled={false}
-                pitchEnabled={false}
-              />
-              {/* DARK OVERLAY FOR BETTER BLENDING */}
-              <View style={styles.mapOverlay} />
-            </>
-          )}
+          {/* SPLIT BUDGET */}
+          <Animated.View
+            style={[
+              styles.menuItemWrapper,
+              {
+                opacity: menuAnim3,
+                transform: [
+                  {
+                    translateY: menuAnim3.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                  {
+                    scale: menuAnim3.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuExpanded(false);
+                navigation.navigate('TripBudget');
+              }}
+            >
+              <View style={styles.menuIconCircle}>
+                <DollarSign size={20} color="#FFF" />
+              </View>
+              <Text style={styles.menuLabel}>Split Budget</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* WEATHER */}
+          <Animated.View
+            style={[
+              styles.menuItemWrapper,
+              {
+                opacity: menuAnim4,
+                transform: [
+                  {
+                    translateY: menuAnim4.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                  {
+                    scale: menuAnim4.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuExpanded(false);
+                navigation.navigate('WeatherDetails');
+              }}
+            >
+              <View style={styles.menuIconCircle}>
+                <Cloud size={20} color="#FFF" />
+              </View>
+              <Text style={styles.menuLabel}>Weather</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
+      )}
+
+      {/* FLOATING ACTION BUTTON */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setMenuExpanded(!menuExpanded)}
+        activeOpacity={0.8}
+      >
+        {menuExpanded ? (
+          <X size={28} color="#FFF" strokeWidth={2.5} />
+        ) : (
+          <Plus size={28} color="#FFF" strokeWidth={2.5} />
+        )}
       </TouchableOpacity>
 
-      {/* SOS - KEEP THE GLOW HERE */}
+      {/* FLOATING SOS */}
       <TouchableOpacity
-        style={styles.sos}
+        style={styles.sosButton}
         onPress={() => navigation.navigate('SOS')}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
@@ -173,236 +383,190 @@ export default function HomeDashboard() {
   );
 }
 
-/* ---------- COMPONENTS ---------- */
-
-function Card({ children }: any) {
-  return <View style={styles.card}>{children}</View>;
-}
-
-function Action({ icon, label, onPress }: any) {
-  return (
-    <TouchableOpacity style={styles.action} onPress={onPress}>
-      {React.cloneElement(icon, {
-        size: 26,
-        color: '#3B82F6',
-      })}
-      <Text style={styles.actionText}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-/* ---------- STYLES ---------- */
-
-// Only for important elements
-const premiumGlow = {
-  shadowColor: '#22C55E',
-  shadowOffset: { width: 0, height: 0 },
-  shadowOpacity: 0.4,
-  shadowRadius: 16,
-  elevation: 12,
-};
-
-const sosGlow = {
-  shadowColor: '#DC2626',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.5,
-  shadowRadius: 20,
-  elevation: 15,
-};
-
-// Subtle depth for cards
-const subtleShadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.25,
-  shadowRadius: 8,
-  elevation: 3,
-};
+/* ===================== STYLES ===================== */
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1220', // Dark blue background matching app theme
-    padding: 16,
+    backgroundColor: '#0B1220',
   },
 
-  header: {
-    marginTop: 24,
-    marginBottom: 22,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  mapFallback: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  topOverlay: {
+    position: 'absolute',
+    top: 55,
+    left: 16,
+    right: 16,
+  },
+
+  headerCard: {
+    backgroundColor: 'rgba(15,23,42,0.95)',
+    padding: 14,
+    borderRadius: 18,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
 
   greeting: {
-    color: '#64748B',
-    fontSize: 13,
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
 
   name: {
-    color: '#CBD5E1',
-    fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
-  nameHighlight: {
-    color: '#FFF',
-    fontWeight: '600',
-  },
-
-  iconButton: {
-    backgroundColor: '#111827',
-    padding: 10,
-    borderRadius: 14,
-    ...subtleShadow,
-  },
-
-  row: {
+  headerIcons: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 18,
+    gap: 10,
   },
 
-  card: {
-    flex: 1,
-    backgroundColor: '#0F172A', // Slightly lighter than background
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    ...subtleShadow, // Subtle shadow instead of glow
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(30,41,59,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
-  secureCard: {
-    backgroundColor: '#0A1F1A',
-    borderColor: '#22C55E33',
-    ...premiumGlow, // Keep glow only here
+  profileBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   weatherCard: {
-    backgroundColor: '#0F172A',
-    borderColor: '#1E3A8A',
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(15,23,42,0.95)',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
 
-  secure: {
-    color: '#22C55E',
-    fontWeight: '600',
-    marginTop: 8,
+  weatherIcon: {
+    fontSize: 32,
   },
 
-  temp: {
+  weatherInfo: {
+    flexDirection: 'column',
+  },
+
+  weatherTemp: {
     color: '#FFF',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
   },
 
   weatherDesc: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    marginTop: 6,
+    color: '#94A3B8',
+    fontSize: 10,
+    marginTop: 2,
+    letterSpacing: 1,
   },
 
-  sub: {
-    color: '#64748B',
-    fontSize: 12,
-    marginTop: 6,
+  /* EXPANDABLE MENU - Google Keep Style */
+  expandedMenuContainer: {
+    position: 'absolute',
+    bottom: 180,
+    right: 20,
+    alignItems: 'flex-end',
+    gap: 8,
   },
 
-  warning: {
-    marginTop: 8,
-    backgroundColor: '#422006',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+  menuItemWrapper: {
+    width: '100%',
   },
 
-  warningText: {
-    color: '#FCD34D',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-
-  action: {
-    flex: 1,
-    height: 110,
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
-    justifyContent: 'center',
+  menuItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    ...subtleShadow, // Flat design, no glow
-  },
-
-  actionText: {
-    color: '#FFF',
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-
-  /* MAP */
-  mapLabel: {
-    color: '#E5E7EB',
-    fontWeight: '600',
-    fontSize: 14,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-
-  mapCard: {
-    height: 240,
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    backgroundColor: '#0F172A',
-    marginBottom: 12,
-    ...subtleShadow, // Subtle shadow, no glow
-  },
-
-  mapClip: {
-    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.98)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 24,
-    overflow: 'hidden',
+    gap: 12,
+    minWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.25)',
   },
 
-  mapOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)', // Dark overlay for better blending
-    pointerEvents: 'none',
-  },
-
-  mapLoading: {
-    flex: 1,
+  menuIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
   },
 
-  loadingText: {
-    marginTop: 8,
-    color: '#64748B',
-    fontSize: 12,
+  menuLabel: {
+    color: '#F1F5F9',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
-  /* SOS - KEEP THE DRAMATIC GLOW */
-  sos: {
+  /* FLOATING ACTION BUTTON */
+  fab: {
+    position: 'absolute',
+    bottom: 110,
+    right: 20,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+
+  /* FLOATING SOS BUTTON */
+  sosButton: {
     position: 'absolute',
     bottom: 28,
     right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#DC2626',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    ...sosGlow, // Dramatic glow for emergency button
-    borderWidth: 2,
-    borderColor: '#EF4444',
+    elevation: 6,
   },
 
   sosText: {
-    color: '#FFF',
+    color: '#fff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 16,
   },
 });

@@ -37,37 +37,44 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 // Map categories to OpenStreetMap tags
 function mapCategoryToOSMTags(categories: string): string[] {
   const categoryMap: { [key: string]: string[] } = {
-    // Food & Drink
+    // Food & Drink (Tourist-oriented only)
     'restaurant': ['amenity=restaurant'],
     'cafe': ['amenity=cafe'],
     'bar': ['amenity=bar'],
-    'fast_food': ['amenity=fast_food'],
     
-    // Tourism & Attractions
+    // Tourism & Attractions - PRIMARY CATEGORIES
     'museum': ['tourism=museum'],
-    'attraction': ['tourism=attraction'],
     'artwork': ['tourism=artwork'],
     'viewpoint': ['tourism=viewpoint'],
     'gallery': ['tourism=gallery'],
     'theme_park': ['tourism=theme_park'],
+    'zoo': ['tourism=zoo'],
+    'aquarium': ['tourism=aquarium'],
+    'castle': ['historic=castle'],
+    'monument': ['historic=monument'],
+    'memorial': ['historic=memorial'],
+    'archaeological_site': ['historic=archaeological_site'],
+    'ruins': ['historic=ruins'],
+    'fort': ['historic=fort'],
+    'palace': ['historic=palace'],
+    'temple': ['historic=temple', 'amenity=place_of_worship'],
+    // Generic attraction - works worldwide as fallback (combines multiple tags)
+    'attraction': ['tourism=attraction', 'tourism=museum', 'tourism=gallery', 'historic'],
     
-    // Accommodation
+    // Accommodation (if needed)
     'hotel': ['tourism=hotel'],
     'hostel': ['tourism=hostel'],
     
-    // Shopping
-    'shop': ['shop'],
-    'supermarket': ['shop=supermarket'],
-    'mall': ['shop=mall'],
+    // Shopping (Tourist markets only)
+    'market': ['amenity=marketplace', 'shop=mall'],
     
-    // Services
-    'bank': ['amenity=bank'],
-    'hospital': ['amenity=hospital'],
-    'pharmacy': ['amenity=pharmacy'],
-    
-    // Recreation
+    // Recreation & Nature
     'park': ['leisure=park'],
     'garden': ['leisure=garden'],
+    'nature_reserve': ['leisure=nature_reserve'],
+    'beach': ['natural=beach'],
+    'stadium': ['leisure=stadium'],
+    'sports_centre': ['leisure=sports_centre'],
   };
   
   const tags: string[] = [];
@@ -80,9 +87,10 @@ function mapCategoryToOSMTags(categories: string): string[] {
     }
   }
   
-  // Default fallback if no matches
+  // Default fallback - ONLY tourist attractions, NO generic amenities
+  // Use broader tags that work worldwide
   if (tags.length === 0) {
-    tags.push('tourism', 'amenity');
+    tags.push('tourism', 'historic', 'leisure=park');
   }
   
   return tags;
@@ -100,7 +108,8 @@ export class MapsAPIService {
         throw new Error('Invalid coordinates provided for OpenStreetMap search');
       }
 
-      const radius = 20000; // 20km radius
+      // Use larger radius for better coverage (especially for large cities)
+      const radius = 50000; // 50km radius
       const tags = mapCategoryToOSMTags(categories);
       
       // Build Overpass query for multiple tag types
@@ -118,7 +127,7 @@ export class MapsAPIService {
         (
           ${tagQueries}
         );
-        out body 100;
+        out tags 100;
       `;
 
       console.log('📡 Calling OpenStreetMap Overpass API...');
@@ -147,19 +156,34 @@ export class MapsAPIService {
         return [];
       }
 
-      // Filter and map elements that have names
+      // Filter and map elements that have names (prefer English names)
       const places = data.elements
-        .filter((p: any) => p.tags && p.tags.name)
+        .filter((p: any) => {
+          if (!p.tags || !(p.tags['name:en'] || p.tags.name || p.tags['int_name'])) return false;
+          
+          // EXCLUDE non-tourist service places
+          const tags = p.tags;
+          const bannedAmenities = ['bank', 'hospital', 'clinic', 'pharmacy', 'atm', 'post_office', 'school', 'university', 'college', 'police', 'fire_station', 'embassy', 'doctors', 'dentist', 'veterinary'];
+          const bannedShops = ['supermarket', 'convenience', 'department_store', 'general'];
+          
+          if (bannedAmenities.includes(tags.amenity)) return false;
+          if (bannedShops.includes(tags.shop)) return false;
+          
+          return true;
+        })
         .map((p: any) => {
           const tags = p.tags || {};
           const distance = calculateDistance(lat, lon, p.lat, p.lon);
           
-          // Determine category from tags
-          const category = tags.amenity || tags.tourism || tags.shop || tags.leisure || 'Place';
+          // Prefer English name, fallback to international name, then default name
+          const placeName = tags['name:en'] || tags['int_name'] || tags.name;
+          
+          // Determine category from tags (prioritize tourism/historic/leisure)
+          const category = tags.tourism || tags.historic || tags.leisure || tags.amenity || 'Place';
           
           return {
             id: p.id.toString(),
-            name: tags.name,
+            name: placeName,
             description: formatCategory(category),
             categories: formatCategory(category),
             rating: 4.0, // OSM doesn't provide ratings, use default
@@ -250,26 +274,41 @@ export class MapsAPIService {
 // Format category names to be more readable
 function formatCategory(category: string): string {
   const categoryMap: { [key: string]: string } = {
+    // Food & Drink
     'restaurant': 'Restaurant',
     'cafe': 'Café',
     'bar': 'Bar',
-    'fast_food': 'Fast Food',
+    'fast_food': 'Restaurant',
+    // Tourism
     'hotel': 'Hotel',
     'museum': 'Museum',
-    'attraction': 'Attraction',
-    'viewpoint': 'Viewpoint',
-    'park': 'Park',
-    'shop': 'Shop',
-    'supermarket': 'Supermarket',
-    'bank': 'Bank',
-    'hospital': 'Hospital',
-    'pharmacy': 'Pharmacy',
-    'artwork': 'Artwork',
-    'gallery': 'Gallery',
+    'attraction': 'Tourist Attraction',
+    'viewpoint': 'Scenic Viewpoint',
+    'artwork': 'Public Art',
+    'gallery': 'Art Gallery',
     'theme_park': 'Theme Park',
+    'zoo': 'Zoo',
+    'aquarium': 'Aquarium',
     'hostel': 'Hostel',
+    // Historic
+    'castle': 'Historic Castle',
+    'monument': 'Monument',
+    'memorial': 'Memorial',
+    'archaeological_site': 'Archaeological Site',
+    'ruins': 'Historic Ruins',
+    'fort': 'Historic Fort',
+    'palace': 'Palace',
+    'temple': 'Temple',
+    // Nature & Recreation
+    'park': 'Park',
     'garden': 'Garden',
-    'mall': 'Mall',
+    'nature_reserve': 'Nature Reserve',
+    'beach': 'Beach',
+    'stadium': 'Stadium',
+    'sports_centre': 'Sports Center',
+    // Shopping
+    'marketplace': 'Market',
+    'mall': 'Shopping Mall',
   };
-  return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+  return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ');
 }

@@ -46,7 +46,7 @@ Your mobile app **CANNOT connect to the backend** until you update your computer
 ## 🎯 What Changed:
 
 - ✅ **Backend now generates data instantly** - No external API calls
-- ✅ **Activities match your interests** - Picks from History, Food, Nature, Adventure, Shopping, or Relaxation
+- ✅ **Activities match your interests** - Picks from History, Food Spots, Nature, Adventure, Shopping, and more
 - ✅ **Budget-aware planning** - Distributes costs across days
 - ✅ **Fast loading** - No delays from third-party APIs
 - ✅ **Always works** - No API key requirements

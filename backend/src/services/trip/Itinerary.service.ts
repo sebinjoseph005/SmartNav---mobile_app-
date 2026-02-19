@@ -56,6 +56,13 @@ export class ItineraryService {
       const currency = normalizeString(input.currency) || '₹';
       const interests = normalizeInterests(input.interests);
 
+      // ⚠️ CRITICAL VALIDATION: Reject empty destination
+      if (!destination || destination.trim().length === 0) {
+        console.error('❌ EMPTY DESTINATION RECEIVED!');
+        console.error('   Raw input:', JSON.stringify(input.destination));
+        throw new Error('Destination is required. Please enter a city or place name.');
+      }
+
       const startDate = new Date(fromDate);
       const endDate = new Date(toDate);
       const hasValidDates = !isNaN(startDate.getTime()) && !isNaN(endDate.getTime());
@@ -132,21 +139,50 @@ export class ItineraryService {
       console.log(`📊 Total unique places: ${places.length}`);
 
       if (places.length === 0) {
-        console.warn('\n⚠️ WARNING: No places found from Foursquare!');
-        console.warn('   - Destination:', destination);
-        console.warn('   - This might indicate:');
-        console.warn('     • Foursquare API key issue');
-        console.warn('     • Unknown/remote destination');
-        console.warn('     • Network connectivity problem');
-        console.warn('');
-        console.warn('💡 PROCEEDING WITH AI-ONLY PLANNING');
-        console.warn('   AI will use its built-in knowledge of', destination);
-        console.warn('   Results will be generated purely by AI\n');
+        console.warn('\n⚠️ WARNING: No places found from specific interest categories!');
+        console.warn('   Destination:', destination);
+        console.warn('   Interests:', interests.join(', '));
+        console.warn('   Attempting MULTI-LEVEL FALLBACK SEARCH...\n');
         
-        // Create minimal placeholder for AI to work with
-        // AI should use its own knowledge to populate real places
-        placesSource = 'ai-only';
-      } else {
+        // FALLBACK LEVEL 1: Try broader tourist categories
+        const fallbackAttempts = [
+          { name: 'Tourist attractions', categories: 'museum,attraction,park,monument,temple,gallery' },
+          { name: 'Any tourism/historic', categories: 'attraction,monument,park' },
+          { name: 'Restaurants and cafes', categories: 'restaurant,cafe,bar' },
+        ];
+        
+        for (const attempt of fallbackAttempts) {
+          if (places.length > 0) break; // Stop if we found something
+          
+          try {
+            console.log(`   Fallback attempt: ${attempt.name} (${attempt.categories})`);
+            const fallbackPlaces = hasCoords
+              ? await MapsAPIService.getPlacesByCategory(lat, lon, attempt.categories)
+              : await MapsAPIService.getPlacesByCategoryNear(destination, attempt.categories);
+            
+            if (fallbackPlaces && fallbackPlaces.length > 0) {
+              const defaultInterest = interests[0] || 'General Sightseeing';
+              places = fallbackPlaces.map((p: any) => ({ ...p, interest: defaultInterest }));
+              placesSource = 'osm-fallback';
+              console.log(`   ✅ FALLBACK SUCCESS (${attempt.name}): Found ${places.length} places!`);
+              break;
+            } else {
+              console.log(`   ❌ No results for ${attempt.name}`);
+            }
+          } catch (err: any) {
+            console.error(`   ❌ Error in ${attempt.name} search:`, err.message);
+          }
+        }
+        
+        if (places.length === 0) {
+          console.warn('\n💡 ALL OSM SEARCHES FAILED - PROCEEDING WITH AI-ONLY PLANNING');
+          console.warn('   AI will use its built-in knowledge of', destination);
+          console.warn('   Results will be generated purely by AI\n');
+          placesSource = 'ai-only';
+        }
+      }
+      
+      if (places.length > 0) {
         console.log(`✅ Ready to plan trip with ${places.length} real places`);
         console.log(`   Top places: ${places.slice(0, 5).map(p => `${p.name} (${p.interest})`).join(', ')}`);
       }
@@ -199,8 +235,8 @@ export class ItineraryService {
             console.warn('⚠️ Falling back to heuristic timeline with real places');
             timeline = null;
           } else {
-            // No places AND AI failed = throw error instead of returning garbage
-            throw new Error(`Cannot generate quality itinerary for ${destination}: AI failed and no real places found. Please try a more well-known destination or check your API keys.`);
+            // No places AND AI failed = throw helpful error
+            throw new Error(`Cannot generate itinerary for ${destination}: No tourist places found in OpenStreetMap and AI generation failed. This may be a very remote/obscure location. Try: (1) Check internet connection, (2) Verify GROQ_API_KEY is valid, (3) Try a nearby major city instead.`);
           }
         }
       } else if (!process.env.GROQ_API_KEY) {
@@ -292,9 +328,8 @@ export class ItineraryService {
     interests: string[];
     places: any[];
   }): Promise<any[]> {
-    // Send up to 25 places to AI for better variety (especially for worldwide destinations)
-    const maxPlaces = Math.min(args.places.length, 25);
-    const placesForPrompt = args.places.slice(0, maxPlaces).map((p: any) => ({
+    // Send ALL available places to AI (already balanced/shuffled by interest)
+    const placesForPrompt = args.places.map((p: any) => ({
       name: p.name,
       category: p.interest || p.categories || p.description || 'Place',
       rating: p.rating ?? 4.2,
@@ -320,11 +355,31 @@ export class ItineraryService {
    ❌ "Explore the city"
    ❌ "Overview of ${args.destination}"
 
-2. YOU MUST use ONLY the exact place names from the list below
-3. Each activity title MUST be a specific place name (not a description)
-4. DO NOT invent new places - use ONLY what's in the list
-5. DO NOT rename places - copy names EXACTLY
-6. 🌍 ALL OUTPUT MUST BE IN ENGLISH ONLY - No Japanese, Korean, Chinese, Hindi, or any local language scripts
+2. 🚫 ABSOLUTELY FORBIDDEN - DO NOT INCLUDE THESE PLACES:
+   ❌ Banks, ATMs, post offices
+   ❌ Hospitals, clinics, pharmacies, medical centers
+   ❌ Schools, universities, colleges
+   ❌ Police stations, fire stations
+   ❌ Supermarkets, convenience stores
+   ❌ Government offices, embassies
+   ❌ Generic service buildings
+   ✅ ONLY include TOURIST ATTRACTIONS, cultural sites, restaurants, parks, museums, monuments, entertainment venues
+
+3. YOU MUST use ONLY the exact place names from the list below
+4. Each activity title MUST be a specific place name (not a description)
+5. DO NOT invent new places - use ONLY what's in the list
+6. DO NOT rename places - copy names EXACTLY
+7. 🌍 ALL OUTPUT MUST BE IN ENGLISH ONLY - No Japanese, Korean, Chinese, Hindi, or any local language scripts
+8. 🎯 VARIETY IS CRITICAL: If user selected multiple interests, ensure DIFFERENT places for each
+   ${args.interests.length > 1 ? `  ⚠️ User selected ${args.interests.length} interests: ${args.interests.join(', ')}` : ''}
+   ${args.interests.length > 1 ? '  ⚠️ DISTRIBUTE activities across ALL interests - DO NOT repeat same places' : ''}
+   ${args.interests.length > 1 ? '  ⚠️ Example: If "Food + History" → include BOTH restaurants AND museums, not just one type' : ''}
+   ${args.interests.length > 1 ? `  ⚠️ Each day should MIX different interest categories` : ''}
+9. 🔀 PLACE SELECTION STRATEGY:
+   - Look at the "category" field in the place list below
+   - Distribute activities across DIFFERENT categories
+   - Avoid selecting too many places from the same category
+   - Aim for variety and balance across the trip
 
 Destination: ${args.destination}
 Days: ${args.days}
@@ -361,7 +416,13 @@ ${JSON.stringify(placesForPrompt, null, 2)}
 - Create exactly ${args.days} days (day 1 to ${args.days})
 - Put 3-5 activities per day
 - Start times between 09:00 AM and 08:00 PM
-- Prioritize places matching: ${args.interests.join(', ')}
+- 🔀 VARIETY & DISTRIBUTION:
+  ${args.interests.length > 1 ? `  ⚠️ User wants ${args.interests.length} interests: ${args.interests.join(', ')}` : `  ⚠️ User interest: ${args.interests[0]}`}
+  ${args.interests.length > 1 ? '  ⚠️ DISTRIBUTE activities across ALL interests throughout the trip' : ''}
+  ${args.interests.length > 1 ? '  ⚠️ DO NOT group all activities of one interest together' : ''}
+  ${args.interests.length > 1 ? '  ⚠️ Each day should ideally have a MIX of different interest categories' : ''}
+  ${args.interests.length > 1 ? '  ⚠️ Example for "Food + History": Day 1 might have restaurant→museum→cafe→monument (mixed)' : ''}
+- Each activity subtitle MUST explicitly explain how it matches the specified interests
 - VARY costs realistically: food (15-25%), history/museums (3-10%), nature (5-12%), shopping (20-35%), adventure (15-30%)
 - Total cost should sum to approximately ${args.currency} ${args.budget * args.travelers}
 - Higher rated places (4.5+) should have slightly higher costs
@@ -381,13 +442,27 @@ Each title MUST be a specific place name from the list.
    ❌ "Popular attractions"
    ❌ "Explore the city"
 
-2. YOU MUST list REAL, FAMOUS, SPECIFIC places in ${args.destination}
-3. Each title must be an actual place name (temple, restaurant, museum, park, etc.)
-4. Use your knowledge of ${args.destination} to suggest real attractions
-5. DO NOT use the city name in activity titles
-6. 🌍 ALL OUTPUT MUST BE IN ENGLISH ONLY - Use English-transliterated names
-7. ✅ Every place MUST have valid coordinates within 20km of ${args.destination}
-8. ❌ If you cannot find specific real places, DO NOT fabricate - return empty timeline
+2. 🚫 ABSOLUTELY FORBIDDEN - DO NOT INCLUDE THESE PLACES:
+   ❌ Banks, ATMs, post offices
+   ❌ Hospitals, clinics, pharmacies, medical centers
+   ❌ Schools, universities, colleges
+   ❌ Police stations, fire stations
+   ❌ Supermarkets, convenience stores
+   ❌ Government offices, embassies
+   ❌ Generic service buildings
+   ✅ ONLY include TOURIST ATTRACTIONS: temples, museums, monuments, parks, restaurants, cultural sites, entertainment venues, scenic spots
+
+3. YOU MUST list REAL, FAMOUS, SPECIFIC places in ${args.destination}
+4. Each title must be an actual place name (temple, restaurant, museum, park, etc.)
+5. Use your knowledge of ${args.destination} to suggest real attractions
+6. DO NOT use the city name in activity titles
+7. 🌍 ALL OUTPUT MUST BE IN ENGLISH ONLY - Use English-transliterated names
+8. ✅ Every place MUST have valid coordinates within 20km of ${args.destination}
+9. ❌ If you cannot find specific real places, DO NOT fabricate - return empty timeline
+10. 🎯 STRICT INTEREST MATCHING: ONLY recommend places that DIRECTLY match the user's interests
+   ${args.interests.length > 0 ? `  ⚠️ User interests are: ${args.interests.join(', ')} - STICK TO THESE ONLY` : ''}
+   ${args.interests.length > 0 ? '  ⚠️ DO NOT recommend places outside these categories' : ''}
+   ${args.interests.length > 0 ? '  ⚠️ Example: If interests are "Food, History", do NOT suggest shopping malls or adventure parks' : ''}
 
 Destination: ${args.destination}
 Days: ${args.days}
@@ -436,7 +511,10 @@ REQUIREMENTS:
 - ${args.days} days total
 - 3-5 activities per day
 - Times: 09:00 AM - 08:00 PM
-- Prioritize: ${args.interests.join(', ')}
+- 🎯 STRICT: ONLY include places that DIRECTLY match these interests: ${args.interests.join(', ')}
+  ${args.interests.length > 0 ? '  ⚠️ DO NOT suggest places outside these categories' : ''}
+  ${args.interests.length > 0 ? '  ⚠️ Each subtitle MUST clearly state HOW the place matches the specified interests' : ''}
+  ${args.interests.length > 0 ? '  ⚠️ If a place belongs to Food interest, it should be restaurants/markets. If History, it should be museums/historic sites, etc.' : ''}
 - VARY costs realistically: restaurants (15-25%), museums (5-12%), parks/temples (3-8%), activities (20-35%)
 - Total cost ≈ ${args.currency} ${args.budget * args.travelers}
 - Higher rated/famous places = higher costs
@@ -659,9 +737,11 @@ REQUIREMENTS:
   }
 
   private static getBadgeForActivity(category: string, safety: string): string {
-    if (category === "Food") return "Highly Rated";
-    if (category === "History") return "Cultural Site";
-    if (category === "Nature") return "Scenic Spot";
+    if (category === "Food Spots") return "Dining";
+    if (category === "Cultural and Historical") return "Cultural Site";
+    if (category === "Romantic for Couples") return "Romantic";
+    if (category === "Family-Friendly") return "Family Spot";
+    if (category === "Adventure and Outdoor") return "Adventure";
     return "Recommended";
   }
 
@@ -672,18 +752,26 @@ REQUIREMENTS:
     interests: string[];
   }) {
     const allPlaces: any[] = [];
+    // Updated category map using OpenStreetMap tags (not Foursquare codes)
+    // 🎯 DISTINCT categories per interest - minimal overlap to ensure variety
     const categoryMap: Record<string, string> = {
-      History: "16000,16003,16004",
-      Food: "13003,13065",
-      Nature: "16032,16033",
-      Adventure: "18021,18022",
-      Shopping: "17000",
-      Nightlife: "10000",
-      Art: "10027,10022",
-      Museums: "10027",
+      "Food Spots": "restaurant,cafe,bar,fast_food,food_court,ice_cream,pub,bistro,bakery",
+      "Cultural and Historical": "museum,monument,castle,memorial,archaeological_site,ruins,fort,palace,temple,gallery",
+      "Romantic for Couples": "restaurant,cafe,viewpoint",
+      "Family-Friendly": "zoo,theme_park,park,garden",
+      "Adventure and Outdoor": "nature_reserve,beach,viewpoint,sports_centre",
+      // Legacy mappings for backward compatibility
+      History: "museum,monument,castle,memorial,archaeological_site,ruins,fort,palace",
+      Food: "restaurant,cafe,bar,market",
+      Nature: "park,garden,beach,nature_reserve",
+      Adventure: "nature_reserve,beach,viewpoint,sports_centre",
+      Shopping: "market,mall",
+      Nightlife: "bar,cafe",
+      Art: "museum,gallery,artwork",
+      Museums: "museum,gallery",
     };
 
-    const interests = args.interests.length ? args.interests : ["History", "Food", "Nature"];
+    const interests = args.interests.length ? args.interests : ["Cultural and Historical", "Food Spots"];
     const hasCoords = isValidCoordinate(args.lat, args.lon);
     
     console.log(`\n🔍 Detailed Foursquare Search:`);
@@ -727,17 +815,43 @@ REQUIREMENTS:
       });
     }
     
-    // Return up to 40 places (more variety for AI to choose from)
-    const selected = allPlaces.slice(0, 40);
-    console.log(`   Returning ${selected.length} places for itinerary generation`);
+    // 🎯 SMART DISTRIBUTION: Ensure variety by distributing places by interest
+    // Instead of just slicing top 40, balance across interests
+    const balancedPlaces: any[] = [];
+    const maxPerInterest = Math.ceil(40 / interests.length);
     
-    if (selected.length > 0) {
-      console.log(`   First 3 places that will be used:`);
-      selected.slice(0, 3).forEach((p, i) => {
+    console.log(`\n🎯 Balancing places across ${interests.length} interests (max ${maxPerInterest} per interest)`);
+    
+    for (const interest of interests) {
+      const interestPlaces = allPlaces.filter(p => p.interest === interest);
+      const selected = interestPlaces.slice(0, maxPerInterest);
+      balancedPlaces.push(...selected);
+      console.log(`   ${interest}: Selected ${selected.length}/${interestPlaces.length} places`);
+    }
+    
+    // Shuffle to mix different interests throughout the list
+    const shuffled = this.shuffleArray(balancedPlaces);
+    
+    console.log(`   Total balanced places: ${shuffled.length}`);
+    console.log(`   Returning ${shuffled.length} places for itinerary generation`);
+    
+    if (shuffled.length > 0) {
+      console.log(`   Sample mixed places:`);
+      shuffled.slice(0, 5).forEach((p, i) => {
         console.log(`      ${i+1}. "${p.name}" (${p.interest}) - ${p.rating}⭐`);
       });
     }
     
-    return selected;
+    return shuffled;
+  }
+
+  // Fisher-Yates shuffle algorithm to mix places from different interests
+  private static shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
   }
 }

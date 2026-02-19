@@ -26,12 +26,12 @@ export class OpenAIService {
     const client = getGroqClient();
 
     console.log('\n🤖 ========== CALLING GROQ AI ==========');
-    console.log('Model: llama3-70b-8192');
+    console.log('Model: llama-3.3-70b-versatile');
     console.log('Prompt length:', prompt.length, 'characters');
     console.log('Prompt preview:', prompt.substring(0, 200) + '...');
 
     const response = await client.chat.completions.create({
-      model: "llama3-70b-8192",
+      model: "llama-3.3-70b-versatile",
       temperature: 0.7,
       max_tokens: 4000,
       messages: [
@@ -45,7 +45,9 @@ CRITICAL RULES:
 - NEVER invent new places
 - NEVER use words like "exploration", "overview", "about"
 - Each day must have 3-5 specific activities
-- Each activity must be a real place from the provided list`,
+- Each activity must be a real place from the provided list
+- ALL place names MUST be in ENGLISH ONLY - never use Japanese (日本語), Korean (한국어), Chinese (中文), Hindi (हिन्दी), Thai (ไทย), or any other non-English scripts
+- If a place name is provided in English, use it exactly as given`,
         },
         {
           role: "user",

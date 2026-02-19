@@ -122,7 +122,7 @@ export default function AIItineraryResult() {
           <ActionBtn
             icon={<Pencil size={18} />}
             label="Edit"
-            onPress={() => navigation.navigate('TripPlannerInput')}
+            onPress={() => navigation.navigate('TripPlanner')}
           />
         </View>
 

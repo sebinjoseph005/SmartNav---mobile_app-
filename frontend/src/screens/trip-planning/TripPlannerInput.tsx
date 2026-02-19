@@ -9,6 +9,7 @@ import {
   Keyboard,
   Modal,
   FlatList,
+  Alert,
 } from 'react-native';
 import {
   ArrowLeft,
@@ -60,19 +61,20 @@ export default function TripPlannerInput() {
   const [selectingFor, setSelectingFor] = useState<'from' | 'to' | null>(null);
 
   const [travelers, setTravelers] = useState(3);
-  const [budget, setBudget] = useState(150000);
-  const [customBudget, setCustomBudget] = useState('150000');
+  const [budget, setBudget] = useState(50000);
+  const [customBudget, setCustomBudget] = useState('50000');
   const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [isEditingCustom, setIsEditingCustom] = useState(false);
 
   const [interests, setInterests] = useState<string[]>([
-    'History',
-    'Adventure',
+    'Cultural and Historical',
+    'Adventure and Outdoor',
   ]);
 
-  const MAX_BUDGET = 200000; // 2 lakh max for slider
-  const SLIDER_MAX = 200000; // Max value for slider
+  const MIN_BUDGET = 1500; // Minimum budget
+  const MAX_BUDGET = 100000; // 1 lakh max for slider
+  const SLIDER_MAX = 100000; // Max value for slider
 
   // Format date for display
   const formatDisplayDate = (dateString: string) => {
@@ -436,7 +438,10 @@ export default function TripPlannerInput() {
 
         {/* TRAVELERS */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Travelers</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.travelersEmoji}>👥</Text>
+            <Text style={styles.cardTitle}>Travelers</Text>
+          </View>
           <View style={styles.counterRow}>
             <TouchableOpacity
               style={styles.counterBtn}
@@ -526,21 +531,21 @@ export default function TripPlannerInput() {
           ) : (
             <>
               <Slider
-                minimumValue={0}
+                minimumValue={MIN_BUDGET}
                 maximumValue={SLIDER_MAX}
-                step={1000}
+                step={500}
                 value={budget}
                 onValueChange={handleSliderChange}
-                minimumTrackTintColor="#2563EB"
-                maximumTrackTintColor="#1F2933"
-                thumbTintColor="#2563EB"
+                minimumTrackTintColor="#60A5FA"
+                maximumTrackTintColor="#334155"
+                thumbTintColor="#60A5FA"
                 style={{ marginTop: 12 }}
               />
 
               <View style={styles.sliderRange}>
-                <Text style={styles.rangeText}>₹0</Text>
+                <Text style={styles.rangeText}>₹1,500</Text>
                 <Text style={styles.rangeText}>
-                  ₹2,00,000{parseInt(customBudget) > MAX_BUDGET ? '+' : ''}
+                  ₹1,00,000{parseInt(customBudget) > MAX_BUDGET ? '+' : ''}
                 </Text>
               </View>
 
@@ -560,23 +565,45 @@ export default function TripPlannerInput() {
         <Text style={styles.label}>Interests</Text>
 
         <View style={styles.interestRow}>
-          {['History', 'Food', 'Adventure'].map(i => (
+          {[
+            { label: '🍴 Food Spots', value: 'Food Spots' },
+            { label: '🏛️ Cultural and Historical', value: 'Cultural and Historical' },
+          ].map(i => (
             <Interest
-              key={i}
-              label={i}
-              active={interests.includes(i)}
-              onPress={() => toggleInterest(i)}
+              key={i.value}
+              label={i.label}
+              value={i.value}
+              active={interests.includes(i.value)}
+              onPress={() => toggleInterest(i.value)}
             />
           ))}
         </View>
 
         <View style={styles.interestRow}>
-          {['Nature', 'Relaxation', 'Shopping'].map(i => (
+          {[
+            { label: '👨‍👩‍👧‍👦 Family-Friendly', value: 'Family-Friendly' },
+            { label: '🏃 Adventure and Outdoor', value: 'Adventure and Outdoor' },
+          ].map(i => (
             <Interest
-              key={i}
-              label={i}
-              active={interests.includes(i)}
-              onPress={() => toggleInterest(i)}
+              key={i.value}
+              label={i.label}
+              value={i.value}
+              active={interests.includes(i.value)}
+              onPress={() => toggleInterest(i.value)}
+            />
+          ))}
+        </View>
+
+        <View style={styles.interestRow}>
+          {[
+            { label: '💑 Romantic for Couples', value: 'Romantic for Couples' },
+          ].map(i => (
+            <Interest
+              key={i.value}
+              label={i.label}
+              value={i.value}
+              active={interests.includes(i.value)}
+              onPress={() => toggleInterest(i.value)}
             />
           ))}
         </View>
@@ -585,6 +612,17 @@ export default function TripPlannerInput() {
         <TouchableOpacity
           style={styles.generateBtn}
           onPress={() => {
+            // ✅ VALIDATION: Check destination first
+            if (!destination || destination.trim().length === 0) {
+              Alert.alert(
+                'Destination Required',
+                'Please enter a destination to plan your trip.',
+                [{ text: 'OK' }]
+              );
+              return;
+            }
+            
+            // Check dates
             if (!fromDate || !toDate) {
               // Open calendar for from date if not selected
               if (!fromDate) {
@@ -594,6 +632,14 @@ export default function TripPlannerInput() {
               }
               return;
             }
+            
+            // ✅ Log what we're about to send
+            console.log('📤 Sending trip request:');
+            console.log('   Destination:', destination);
+            console.log('   Coordinates:', selectedLat, selectedLon);
+            console.log('   Dates:', fromDate, 'to', toDate);
+            console.log('   Interests:', interests);
+            
             navigation.navigate('AIItineraryLoading', {
               destination,
               lat: selectedLat,
@@ -719,10 +765,12 @@ export default function TripPlannerInput() {
 
 function Interest({
   label,
+  value,
   active,
   onPress,
 }: {
   label: string;
+  value: string;
   active?: boolean;
   onPress: () => void;
 }) {
@@ -782,7 +830,7 @@ const styles = StyleSheet.create({
 
   // Destination Input
   inputBox: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1E293B',
     borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
@@ -802,7 +850,7 @@ const styles = StyleSheet.create({
   },
   dateInputBox: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1E293B',
     borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
@@ -810,9 +858,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dateInputBoxActive: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#334155',
     borderWidth: 1,
-    borderColor: '#2563EB',
+    borderColor: '#60A5FA',
   },
   dateInputContent: {
     flex: 1,
@@ -832,15 +880,23 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 16,
     marginTop: 14,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  travelersEmoji: {
+    fontSize: 18,
+  },
   cardTitle: {
     color: '#fff',
     fontWeight: '600',
-    marginBottom: 12,
   },
 
   counterRow: {
@@ -852,7 +908,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1F2933',
+    backgroundColor: '#334155',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -979,12 +1035,12 @@ const styles = StyleSheet.create({
   },
   interestChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#111827',
+    backgroundColor: '#334155',
   },
   interestActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#3B82F6',
   },
   interestText: {
     color: '#94A3B8',

@@ -1,21 +1,15 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text } from 'react-native';
+import ProfileScreen from '../../screens/settings/ProfileScreen';
+import EditProfileScreen from '../../screens/settings/EditProfileScreen';
 
 const Stack = createNativeStackNavigator();
-
-function ProfilePlaceholder() {
-  return (
-    <View style={{ flex: 1, backgroundColor: '#0B1220', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ color: '#fff' }}>Profile Screen</Text>
-    </View>
-  );
-}
 
 export default function ProfileStack() {
   return (
     <Stack.Navigator id="ProfileStack" screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="ProfileMain" component={ProfilePlaceholder} />
+      <Stack.Screen name="ProfileMain" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
     </Stack.Navigator>
   );
 }

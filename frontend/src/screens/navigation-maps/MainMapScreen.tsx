@@ -276,6 +276,8 @@ export default function MainMapScreen() {
               [start.longitude, start.latitude],
               [dest.longitude, dest.latitude],
             ],
+            geometry_simplify: false,
+            geometry_format: 'geojson',
           }),
         });
 
@@ -283,7 +285,14 @@ export default function MainMapScreen() {
           routeData = await routeRes.json();
           serviceUsed = 'ORS';
           console.log('✅ ORS route received');
+          console.log('📊 ORS response structure:', {
+            hasFeatures: !!routeData.features,
+            hasRoutes: !!routeData.routes,
+            topLevelKeys: Object.keys(routeData).join(', ')
+          });
         } else {
+          const errorText = await routeRes.text();
+          console.warn('⚠️ ORS error response (fallback to OSRM):', errorText.substring(0, 200));
           throw new Error(`ORS failed: ${routeRes.status}`);
         }
       } catch (orsError: any) {
@@ -307,12 +316,24 @@ export default function MainMapScreen() {
 
           const osrmData = await osrmRes.json();
           
+          console.log('📊 OSRM raw response:', {
+            code: osrmData.code,
+            hasRoutes: !!osrmData.routes,
+            routesLength: osrmData.routes?.length,
+            firstRouteKeys: osrmData.routes?.[0] ? Object.keys(osrmData.routes[0]).join(', ') : 'N/A'
+          });
+          
           if (osrmData.code !== 'Ok' || !osrmData.routes || osrmData.routes.length === 0) {
             throw new Error('OSRM returned no routes');
           }
 
           // Convert OSRM format to ORS-like format for consistency
           const osrmRoute = osrmData.routes[0];
+          
+          console.log('📊 OSRM route geometry type:', osrmRoute.geometry?.type);
+          console.log('📊 OSRM route has coordinates:', !!osrmRoute.geometry?.coordinates);
+          console.log('📊 OSRM route coordinates count:', osrmRoute.geometry?.coordinates?.length);
+          
           routeData = {
             routes: [{
               geometry: osrmRoute.geometry,
@@ -325,7 +346,7 @@ export default function MainMapScreen() {
           };
           
           serviceUsed = 'OSRM';
-          console.log('✅ OSRM route received');
+          console.log('✅ OSRM route received and converted');
         } catch (osrmError: any) {
           console.error('❌ Both ORS and OSRM failed:', osrmError.message);
           Alert.alert('Route Error', 'Could not calculate route. Please check your internet connection.');
@@ -334,9 +355,10 @@ export default function MainMapScreen() {
         }
       }
 
-      console.log(`✅ Route from ${serviceUsed}:`, JSON.stringify(routeData).substring(0, 200) + '...');
+      console.log(`✅ Route from ${serviceUsed}:`, JSON.stringify(routeData).substring(0, 300) + '...');
 
       if (!routeData) {
+        console.error('❌ Route data is null/undefined');
         Alert.alert('No Route Found', 'Could not find a route to this destination.');
         setLoading(false);
         return;
@@ -344,28 +366,105 @@ export default function MainMapScreen() {
 
       // Parse route data (handle both ORS features and routes format)
       let route;
+      let summary;
+      
       if (routeData.features && routeData.features.length > 0) {
-        // GeoJSON features format
-        route = {
-          geometry: routeData.features[0].geometry,
-          summary: routeData.features[0].properties.summary,
-        };
+        // GeoJSON features format (ORS sometimes uses this)
+        console.log('📊 Parsing as GeoJSON features format');
+        route = routeData.features[0];
+        summary = route.properties?.summary;
       } else if (routeData.routes && routeData.routes.length > 0) {
         // Standard routes format (ORS/OSRM)
+        console.log('📊 Parsing as routes format');
         route = routeData.routes[0];
+        summary = route.summary;
       } else {
-        Alert.alert('No Route Found', 'Invalid route data received.');
+        console.error('❌ Unexpected route data structure:', {
+          hasFeatures: !!routeData.features,
+          featuresLength: routeData.features?.length,
+          hasRoutes: !!routeData.routes,
+          routesLength: routeData.routes?.length,
+          keys: Object.keys(routeData)
+        });
+        Alert.alert('No Route Found', 'Invalid route data received from mapping service.');
         setLoading(false);
         return;
       }
 
-      // Parse geometry coordinates
-      const coords = route.geometry.coordinates.map((c: number[]) => ({
-        latitude: c[1],
-        longitude: c[0],
-      }));
+      // Validate route geometry exists
+      if (!route.geometry) {
+        console.error('❌ Route missing geometry:', route);
+        Alert.alert('Route Error', 'Route geometry is missing.');
+        setLoading(false);
+        return;
+      }
 
-      const summary = route.summary;
+      console.log('📊 Geometry structure:', {
+        type: route.geometry.type,
+        hasCoordinates: !!route.geometry.coordinates,
+        isString: typeof route.geometry === 'string',
+        geometryKeys: typeof route.geometry === 'object' ? Object.keys(route.geometry).join(', ') : 'N/A'
+      });
+
+      // Handle different geometry formats
+      let coords;
+      if (route.geometry.coordinates && Array.isArray(route.geometry.coordinates)) {
+        // GeoJSON LineString format: coordinates is array of [lon, lat] pairs
+        console.log('📍 Using GeoJSON coordinates, count:', route.geometry.coordinates.length);
+        coords = route.geometry.coordinates.map((c: number[]) => ({
+          latitude: c[1],
+          longitude: c[0],
+        }));
+      } else if (typeof route.geometry === 'string' || (route.geometry && !route.geometry.coordinates)) {
+        // Encoded polyline format - try to get it from OSRM instead
+        console.warn('⚠️ Received encoded polyline, falling back to OSRM...');
+        
+        // Retry with OSRM which always returns GeoJSON
+        try {
+          const osrmUrl = `${OSRM_DIRECTIONS_URL}/${start.longitude},${start.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`;
+          const osrmRes = await fetch(osrmUrl);
+          const osrmData = await osrmRes.json();
+          
+          if (osrmData.code === 'Ok' && osrmData.routes && osrmData.routes.length > 0) {
+            const osrmRoute = osrmData.routes[0];
+            coords = osrmRoute.geometry.coordinates.map((c: number[]) => ({
+              latitude: c[1],
+              longitude: c[0],
+            }));
+            summary = {
+              distance: osrmRoute.distance,
+              duration: osrmRoute.duration,
+            };
+            console.log('✅ Using OSRM fallback coordinates');
+          } else {
+            throw new Error('OSRM fallback failed');
+          }
+        } catch (fallbackError) {
+          console.error('❌ OSRM fallback failed:', fallbackError);
+          Alert.alert('Route Error', 'Could not decode route. Please try again.');
+          setLoading(false);
+          return;
+        }
+      } else {
+        console.error('❌ Unknown geometry format:', route.geometry);
+        Alert.alert('Route Error', 'Unknown route geometry format.');
+        setLoading(false);
+        return;
+      }
+
+      if (!coords || coords.length === 0) {
+        console.error('❌ No coordinates parsed from route');
+        Alert.alert('Route Error', 'Failed to parse route coordinates.');
+        setLoading(false);
+        return;
+      }
+
+      if (!summary || !summary.distance || !summary.duration) {
+        console.error('❌ Route missing summary data:', summary);
+        Alert.alert('Route Error', 'Route summary information is missing.');
+        setLoading(false);
+        return;
+      }
       const drivingMinutes = Math.round(summary.duration / 60);
 
       setRouteCoords(coords);
