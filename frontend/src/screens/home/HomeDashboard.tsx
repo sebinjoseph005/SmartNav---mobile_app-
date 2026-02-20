@@ -19,7 +19,7 @@ import {
   X,
   Cloud,
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 
 const getGreeting = () => {
@@ -43,6 +43,7 @@ export default function HomeDashboard() {
   const navigation = useNavigation<any>();
 
   const [name, setName] = useState('Traveler');
+  const [greeting, setGreeting] = useState(getGreeting());
   const [location, setLocation] = useState<any>(null);
   const [weather, setWeather] = useState<any>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
@@ -57,6 +58,22 @@ export default function HomeDashboard() {
   useEffect(() => {
     loadUser();
     loadLocation();
+  }, []);
+
+  // Reload user when screen comes into focus (e.g., after editing profile)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUser();
+    }, [])
+  );
+
+  // Update greeting every minute to keep it fresh
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGreeting(getGreeting());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
   }, []);
 
   // Animate menu items when expanded/collapsed
@@ -161,7 +178,7 @@ export default function HomeDashboard() {
         {/* HEADER */}
         <View style={styles.headerCard}>
           <Text style={styles.greeting}>
-            • {getGreeting()}, <Text style={styles.name}>{name}</Text>
+            • {greeting}, <Text style={styles.name}>{name}</Text>
           </Text>
 
           <View style={styles.headerIcons}>

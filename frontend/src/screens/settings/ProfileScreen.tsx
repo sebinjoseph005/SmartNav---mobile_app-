@@ -19,7 +19,7 @@ import {
   LogOut,
   ChevronRight,
 } from 'lucide-react-native';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation, CommonActions, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 
 export default function ProfileScreen() {
@@ -32,6 +32,13 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadUser();
   }, []);
+
+  // Reload user when screen comes into focus (e.g., after editing profile)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUser();
+    }, [])
+  );
 
   // Animate settings section when toggled
   useEffect(() => {
