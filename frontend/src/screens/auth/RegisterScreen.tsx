@@ -18,6 +18,8 @@ const RegisterScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,9 +28,11 @@ const RegisterScreen = () => {
 
   const isPasswordValid = password.length >= 6;
   const isNameValid = name.trim().length >= 2;
+  const isEmergencyContactNameValid = emergencyContactName.trim().length >= 2;
+  const isEmergencyContactPhoneValid = /^[\d\s\+\-\(\)]+$/.test(emergencyContactPhone) && emergencyContactPhone.replace(/\D/g, '').length >= 10;
 
   const canRegister =
-    isNameValid && isValidEmail(email) && isPasswordValid;
+    isNameValid && isValidEmail(email) && isPasswordValid && isEmergencyContactNameValid && isEmergencyContactPhoneValid;
 
   const handleRegister = async () => {
     setSubmitted(true);
@@ -43,6 +47,8 @@ const RegisterScreen = () => {
         options: {
           data: {
             full_name: name,
+            emergency_contact_name: emergencyContactName.trim(),
+            emergency_contact_phone: emergencyContactPhone.trim(),
           },
         },
       });
@@ -140,6 +146,39 @@ const RegisterScreen = () => {
           {submitted && !isPasswordValid && (
             <Text style={styles.errorText}>
               Password must be at least 6 characters
+            </Text>
+          )}
+        </View>
+
+        {/* Emergency Contact Name */}
+        <View style={styles.field}>
+          <TextInput
+            style={styles.input}
+            placeholder="Emergency Contact Name"
+            placeholderTextColor="#8A94A6"
+            value={emergencyContactName}
+            onChangeText={setEmergencyContactName}
+          />
+          {submitted && !isEmergencyContactNameValid && (
+            <Text style={styles.errorText}>
+              Please enter emergency contact name
+            </Text>
+          )}
+        </View>
+
+        {/* Emergency Contact Phone */}
+        <View style={styles.field}>
+          <TextInput
+            style={styles.input}
+            placeholder="Emergency Contact Phone"
+            placeholderTextColor="#8A94A6"
+            keyboardType="phone-pad"
+            value={emergencyContactPhone}
+            onChangeText={setEmergencyContactPhone}
+          />
+          {submitted && !isEmergencyContactPhoneValid && (
+            <Text style={styles.errorText}>
+              Please enter a valid phone number (min 10 digits)
             </Text>
           )}
         </View>

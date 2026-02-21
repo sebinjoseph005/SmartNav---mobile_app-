@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import MapView from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import {
   Bell,
@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   Cloud,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
@@ -48,12 +49,16 @@ export default function HomeDashboard() {
   const [weather, setWeather] = useState<any>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [menuExpanded, setMenuExpanded] = useState(false);
+  const [safeHavenMode, setSafeHavenMode] = useState(false);
+  const [safePlaces, setSafePlaces] = useState<any[]>([]);
+  const [loadingSafePlaces, setLoadingSafePlaces] = useState(false);
 
   // Animation values for menu items
   const menuAnim1 = useRef(new Animated.Value(0)).current;
   const menuAnim2 = useRef(new Animated.Value(0)).current;
   const menuAnim3 = useRef(new Animated.Value(0)).current;
   const menuAnim4 = useRef(new Animated.Value(0)).current;
+  const menuAnim5 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadUser();
@@ -84,6 +89,7 @@ export default function HomeDashboard() {
       menuAnim2.setValue(0);
       menuAnim3.setValue(0);
       menuAnim4.setValue(0);
+      menuAnim5.setValue(0);
 
       // Then start staggered animation - items appear one by one
       Animated.stagger(80, [
@@ -111,6 +117,12 @@ export default function HomeDashboard() {
           tension: 50,
           friction: 7,
         }),
+        Animated.spring(menuAnim5, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+        }),
       ]).start();
     } else {
       // Reset animations instantly when closing
@@ -118,6 +130,7 @@ export default function HomeDashboard() {
       menuAnim2.setValue(0);
       menuAnim3.setValue(0);
       menuAnim4.setValue(0);
+      menuAnim5.setValue(0);
     }
   }, [menuExpanded]);
 
@@ -153,6 +166,66 @@ export default function HomeDashboard() {
     }
   };
 
+  const fetchSafePlaces = async (lat: number, lon: number) => {
+    try {
+      setLoadingSafePlaces(true);
+      
+      // Overpass API query for safe places
+      // Tier 1: Police, Hospitals, Fire Stations
+      // Tier 2: Pharmacies, Hotels, Railway stations
+      const radius = 20000; // 20km radius
+      const query = `
+        [out:json][timeout:25];
+        (
+          node["amenity"="police"](around:${radius},${lat},${lon});
+          node["amenity"="hospital"](around:${radius},${lat},${lon});
+          node["amenity"="clinic"](around:${radius},${lat},${lon});
+          node["amenity"="fire_station"](around:${radius},${lat},${lon});
+          node["amenity"="pharmacy"](around:${radius},${lat},${lon});
+          node["tourism"="hotel"](around:${radius},${lat},${lon});
+          node["railway"="station"](around:${radius},${lat},${lon});
+        );
+        out body;
+      `;
+
+      const response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: query,
+      });
+
+      const data = await response.json();
+      
+      // Transform data for markers
+      const places = data.elements.map((place: any) => ({
+        id: place.id,
+        latitude: place.lat,
+        longitude: place.lon,
+        name: place.tags?.name || 'Safe Place',
+        type: place.tags?.amenity || place.tags?.tourism || place.tags?.railway || 'safe_place',
+      }));
+
+      setSafePlaces(places);
+      setLoadingSafePlaces(false);
+      console.log(`Found ${places.length} safe places nearby`);
+    } catch (e) {
+      console.error('Error fetching safe places:', e);
+      setLoadingSafePlaces(false);
+    }
+  };
+
+  const toggleSafeHavenMode = () => {
+    const newMode = !safeHavenMode;
+    setSafeHavenMode(newMode);
+    
+    if (newMode && location) {
+      // Fetch safe places when activating mode
+      fetchSafePlaces(location.latitude, location.longitude);
+    } else {
+      // Clear markers when deactivating
+      setSafePlaces([]);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* MAP */}
@@ -166,7 +239,21 @@ export default function HomeDashboard() {
             longitudeDelta: 0.05,
           }}
           showsUserLocation
-        />
+        >
+          {/* Safe Haven Markers */}
+          {safeHavenMode && safePlaces.map((place) => (
+            <Marker
+              key={place.id}
+              coordinate={{
+                latitude: place.latitude,
+                longitude: place.longitude,
+              }}
+              title={place.name}
+              description={place.type.replace('_', ' ').toUpperCase()}
+              pinColor="#DC2626"
+            />
+          ))}
+        </MapView>
       ) : (
         <View style={styles.mapFallback}>
           <ActivityIndicator size="large" color="#3B82F6" />
@@ -175,6 +262,16 @@ export default function HomeDashboard() {
 
       {/* TOP OVERLAY */}
       <View style={styles.topOverlay}>
+        {/* SAFE HAVEN MODE BANNER */}
+        {safeHavenMode && (
+          <View style={styles.safeHavenBanner}>
+            <ShieldCheck size={18} color="#FFF" />
+            <Text style={styles.safeHavenBannerText}>
+              Safe Haven Mode Active • {safePlaces.length} safe places nearby
+            </Text>
+          </View>
+        )}
+
         {/* HEADER */}
         <View style={styles.headerCard}>
           <Text style={styles.greeting}>
@@ -222,10 +319,11 @@ export default function HomeDashboard() {
         </TouchableOpacity>
       </View>
 
-      {/* EXPANDABLE MENU - Google Keep Style with Animations */}
+      {/* EXPANDABLE MENU - Grid Layout with Animations */}
       {menuExpanded && (
         <View style={styles.expandedMenuContainer}>
-          {/* PLAN TRIP */}
+          <View style={styles.menuGrid}>
+          {/* SAFE HAVEN */}
           <Animated.View
             style={[
               styles.menuItemWrapper,
@@ -240,6 +338,54 @@ export default function HomeDashboard() {
                   },
                   {
                     scale: menuAnim1.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.menuItem,
+                safeHavenMode && styles.menuItemActive,
+              ]}
+              onPress={() => {
+                setMenuExpanded(false);
+                toggleSafeHavenMode();
+              }}
+            >
+              <View style={[
+                styles.menuIconCircle,
+                safeHavenMode && styles.menuIconCircleActive,
+              ]}>
+                <ShieldCheck size={20} color="#FFF" />
+              </View>
+              <Text style={styles.menuLabel}>
+                {safeHavenMode ? 'Exit Safe Haven' : 'Safe Haven'}
+              </Text>
+              {loadingSafePlaces && (
+                <ActivityIndicator size="small" color="#3B82F6" />
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* PLAN TRIP */}
+          <Animated.View
+            style={[
+              styles.menuItemWrapper,
+              {
+                opacity: menuAnim2,
+                transform: [
+                  {
+                    translateY: menuAnim2.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                  {
+                    scale: menuAnim2.interpolate({
                       inputRange: [0, 1],
                       outputRange: [0.8, 1],
                     }),
@@ -267,16 +413,16 @@ export default function HomeDashboard() {
             style={[
               styles.menuItemWrapper,
               {
-                opacity: menuAnim2,
+                opacity: menuAnim3,
                 transform: [
                   {
-                    translateY: menuAnim2.interpolate({
+                    translateY: menuAnim3.interpolate({
                       inputRange: [0, 1],
                       outputRange: [20, 0],
                     }),
                   },
                   {
-                    scale: menuAnim2.interpolate({
+                    scale: menuAnim3.interpolate({
                       inputRange: [0, 1],
                       outputRange: [0.8, 1],
                     }),
@@ -304,16 +450,16 @@ export default function HomeDashboard() {
             style={[
               styles.menuItemWrapper,
               {
-                opacity: menuAnim3,
+                opacity: menuAnim4,
                 transform: [
                   {
-                    translateY: menuAnim3.interpolate({
+                    translateY: menuAnim4.interpolate({
                       inputRange: [0, 1],
                       outputRange: [20, 0],
                     }),
                   },
                   {
-                    scale: menuAnim3.interpolate({
+                    scale: menuAnim4.interpolate({
                       inputRange: [0, 1],
                       outputRange: [0.8, 1],
                     }),
@@ -341,16 +487,16 @@ export default function HomeDashboard() {
             style={[
               styles.menuItemWrapper,
               {
-                opacity: menuAnim4,
+                opacity: menuAnim5,
                 transform: [
                   {
-                    translateY: menuAnim4.interpolate({
+                    translateY: menuAnim5.interpolate({
                       inputRange: [0, 1],
                       outputRange: [20, 0],
                     }),
                   },
                   {
-                    scale: menuAnim4.interpolate({
+                    scale: menuAnim5.interpolate({
                       inputRange: [0, 1],
                       outputRange: [0.8, 1],
                     }),
@@ -372,6 +518,7 @@ export default function HomeDashboard() {
               <Text style={styles.menuLabel}>Weather</Text>
             </TouchableOpacity>
           </Animated.View>
+          </View>
         </View>
       )}
 
@@ -426,6 +573,29 @@ const styles = StyleSheet.create({
     top: 55,
     left: 16,
     right: 16,
+  },
+
+  safeHavenBanner: {
+    backgroundColor: 'rgba(220, 38, 38, 0.95)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  safeHavenBannerText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
   },
 
   headerCard: {
@@ -503,28 +673,33 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  /* EXPANDABLE MENU - Google Keep Style */
+  /* EXPANDABLE MENU - Grid Layout */
   expandedMenuContainer: {
     position: 'absolute',
     bottom: 180,
+    left: 20,
     right: 20,
-    alignItems: 'flex-end',
-    gap: 8,
+  },
+
+  menuGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'flex-start',
   },
 
   menuItemWrapper: {
-    width: '100%',
+    width: '48%',
   },
 
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(15, 23, 42, 0.98)',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    gap: 12,
-    minWidth: 160,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    gap: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
@@ -532,6 +707,12 @@ const styles = StyleSheet.create({
     elevation: 5,
     borderWidth: 1,
     borderColor: 'rgba(59, 130, 246, 0.25)',
+  },
+
+  menuItemActive: {
+    backgroundColor: 'rgba(220, 38, 38, 0.15)',
+    borderColor: 'rgba(220, 38, 38, 0.5)',
+    borderWidth: 2,
   },
 
   menuIconCircle: {
@@ -543,10 +724,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  menuIconCircleActive: {
+    backgroundColor: '#DC2626',
+  },
+
   menuLabel: {
     color: '#F1F5F9',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+    flex: 1,
   },
 
   /* FLOATING ACTION BUTTON */

@@ -18,6 +18,8 @@ export default function EditProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
   useEffect(() => {
     loadUserData();
@@ -29,6 +31,8 @@ export default function EditProfileScreen() {
       if (data?.user) {
         setFullName(data.user.user_metadata?.full_name || '');
         setEmail(data.user.email || '');
+        setEmergencyContactName(data.user.user_metadata?.emergency_contact_name || '');
+        setEmergencyContactPhone(data.user.user_metadata?.emergency_contact_phone || '');
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -41,10 +45,24 @@ export default function EditProfileScreen() {
       return;
     }
 
+    if (!emergencyContactName.trim()) {
+      Alert.alert('Error', 'Please enter emergency contact name');
+      return;
+    }
+
+    if (!emergencyContactPhone.trim() || !/^[\d\s\+\-\(\)]+$/.test(emergencyContactPhone) || emergencyContactPhone.replace(/\D/g, '').length < 10) {
+      Alert.alert('Error', 'Please enter a valid emergency contact phone number (min 10 digits)');
+      return;
+    }
+
     try {
       setLoading(true);
       const { error } = await supabase.auth.updateUser({
-        data: { full_name: fullName.trim() }
+        data: {
+          full_name: fullName.trim(),
+          emergency_contact_name: emergencyContactName.trim(),
+          emergency_contact_phone: emergencyContactPhone.trim(),
+        }
       });
 
       if (error) throw error;
@@ -98,6 +116,34 @@ export default function EditProfileScreen() {
             </View>
             <Text style={styles.helperText}>
               Email cannot be changed. Contact support if needed.
+            </Text>
+          </View>
+
+          {/* EMERGENCY CONTACT NAME */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Emergency Contact Name</Text>
+            <TextInput
+              style={styles.input}
+              value={emergencyContactName}
+              onChangeText={setEmergencyContactName}
+              placeholder="Enter emergency contact name"
+              placeholderTextColor="#64748B"
+            />
+          </View>
+
+          {/* EMERGENCY CONTACT PHONE */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Emergency Contact Phone</Text>
+            <TextInput
+              style={styles.input}
+              value={emergencyContactPhone}
+              onChangeText={setEmergencyContactPhone}
+              placeholder="Enter emergency contact phone"
+              placeholderTextColor="#64748B"
+              keyboardType="phone-pad"
+            />
+            <Text style={styles.helperText}>
+              This contact will be notified in case of emergency.
             </Text>
           </View>
 

@@ -8,6 +8,7 @@ import TripPlannerInput from '../../screens/trip-planning/TripPlannerInput';
 import AIItineraryLoading from '../../screens/trip-planning/AIItineraryLoading';
 import AIItineraryResult from '../../screens/trip-planning/AIItineraryResult';
 import EditItinerary from '../../screens/trip-planning/EditItinerary';
+import SafeHavenLocator from '../../screens/safety-emergency/SafeHavenLocator';
 
 const Stack = createNativeStackNavigator();
 
@@ -24,6 +25,12 @@ export default function HomeStack() {
       <Stack.Screen
         name="WeatherDetails"
         component={WeatherDetails}
+      />
+
+      {/* SAFE HAVEN LOCATOR */}
+      <Stack.Screen
+        name="SafeHavenLocator"
+        component={SafeHavenLocator}
       />
 
       {/* TRIP BUDGET - Budget Overview & Tracking */}

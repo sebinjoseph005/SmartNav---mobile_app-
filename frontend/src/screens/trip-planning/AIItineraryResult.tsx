@@ -130,7 +130,10 @@ export default function AIItineraryResult() {
       </ScrollView>
 
       {/* FLOATING SOS */}
-      <TouchableOpacity style={styles.sos}>
+      <TouchableOpacity 
+        style={styles.sos}
+        onPress={() => navigation.navigate('SOS')}
+      >
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
     </View>
