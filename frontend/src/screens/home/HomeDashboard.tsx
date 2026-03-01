@@ -1,775 +1,418 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import {
-  Bell,
-  User,
   Calendar,
   Navigation2,
   DollarSign,
-  Plus,
-  X,
-  Cloud,
-  ShieldCheck,
+  Bell,
+  User,
+  AlertTriangle,
+  CheckCircle,
+  MapPin,
+  Camera,
+  ShoppingBag,
+  UtensilsCrossed,
+  TreePine,
+  BookMarked,
+  Users,
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good Morning';
-  if (hour < 18) return 'Good Afternoon';
-  return 'Good Evening';
-};
-
-const getWeatherInfo = (code: number) => {
-  if (code === 0) return { icon: '☀️', desc: 'CLEAR SKY' };
-  if (code <= 3) return { icon: '⛅', desc: 'PARTLY CLOUDY' };
-  if (code <= 48) return { icon: '🌫️', desc: 'FOGGY' };
-  if (code <= 67) return { icon: '🌧️', desc: 'RAINY' };
-  if (code <= 77) return { icon: '❄️', desc: 'SNOWY' };
-  if (code <= 82) return { icon: '🌦️', desc: 'SHOWERS' };
-  return { icon: '⛈️', desc: 'THUNDERSTORM' };
-};
-
 export default function HomeDashboard() {
   const navigation = useNavigation<any>();
 
-  const [name, setName] = useState('Traveler');
-  const [greeting, setGreeting] = useState(getGreeting());
   const [location, setLocation] = useState<any>(null);
-  const [weather, setWeather] = useState<any>(null);
-  const [loadingWeather, setLoadingWeather] = useState(false);
-  const [menuExpanded, setMenuExpanded] = useState(false);
-  const [safeHavenMode, setSafeHavenMode] = useState(false);
-  const [safePlaces, setSafePlaces] = useState<any[]>([]);
-  const [loadingSafePlaces, setLoadingSafePlaces] = useState(false);
-
-  // Animation values for menu items
-  const menuAnim1 = useRef(new Animated.Value(0)).current;
-  const menuAnim2 = useRef(new Animated.Value(0)).current;
-  const menuAnim3 = useRef(new Animated.Value(0)).current;
-  const menuAnim4 = useRef(new Animated.Value(0)).current;
-  const menuAnim5 = useRef(new Animated.Value(0)).current;
+  const [weather, setWeather] = useState<any>({ temp: '--', desc: 'Loading...', icon: 'Partly Cloudy' });
+  const [greeting, setGreeting] = useState('Good Evening');
+  const [userName, setUserName] = useState('Traveler');
+  const [recommendedPlaces, setRecommendedPlaces] = useState<any[]>([]);
+  const [loadingPlaces, setLoadingPlaces] = useState(false);
+  const [nearbyScams, setNearbyScams] = useState(0);
 
   useEffect(() => {
+    updateGreeting();
     loadUser();
     loadLocation();
   }, []);
 
-  // Reload user when screen comes into focus (e.g., after editing profile)
   useFocusEffect(
-    React.useCallback(() => {
-      loadUser();
-    }, [])
+    useCallback(() => {
+      if (location) checkNearbyScams(location.latitude, location.longitude);
+    }, [location])
   );
 
-  // Update greeting every minute to keep it fresh
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGreeting(getGreeting());
-    }, 60000); // Update every minute
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Animate menu items when expanded/collapsed
-  useEffect(() => {
-    if (menuExpanded) {
-      // Reset all animations to 0 first
-      menuAnim1.setValue(0);
-      menuAnim2.setValue(0);
-      menuAnim3.setValue(0);
-      menuAnim4.setValue(0);
-      menuAnim5.setValue(0);
-
-      // Then start staggered animation - items appear one by one
-      Animated.stagger(80, [
-        Animated.spring(menuAnim1, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 7,
-        }),
-        Animated.spring(menuAnim2, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 7,
-        }),
-        Animated.spring(menuAnim3, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 7,
-        }),
-        Animated.spring(menuAnim4, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 7,
-        }),
-        Animated.spring(menuAnim5, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 7,
-        }),
-      ]).start();
-    } else {
-      // Reset animations instantly when closing
-      menuAnim1.setValue(0);
-      menuAnim2.setValue(0);
-      menuAnim3.setValue(0);
-      menuAnim4.setValue(0);
-      menuAnim5.setValue(0);
-    }
-  }, [menuExpanded]);
+  const updateGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting('Good Morning');
+    else if (hour < 18) setGreeting('Good Afternoon');
+    else setGreeting('Good Evening');
+  };
 
   const loadUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    const fullName = data?.user?.user_metadata?.full_name;
-    if (fullName) setName(fullName);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler';
+      setUserName(name.split(' ')[0]);
+    }
   };
 
   const loadLocation = async () => {
-    const { status } =
-      await Location.requestForegroundPermissionsAsync();
-
+    const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') return;
-
     const loc = await Location.getCurrentPositionAsync({});
     setLocation(loc.coords);
     fetchWeather(loc.coords.latitude, loc.coords.longitude);
+    fetchRecommendedPlaces(loc.coords.latitude, loc.coords.longitude);
+    checkNearbyScams(loc.coords.latitude, loc.coords.longitude);
+  };
+
+  const checkNearbyScams = async (lat: number, lon: number) => {
+    try {
+      const { data } = await supabase.from('scam_reports').select('id,lat,lon').limit(100);
+      const nearby = (data || []).filter((r: any) => {
+        const dLat = (r.lat - lat) * 111;
+        const dLon = (r.lon - lon) * 111 * Math.cos((lat * Math.PI) / 180);
+        return Math.sqrt(dLat * dLat + dLon * dLon) <= 5;
+      });
+      setNearbyScams(nearby.length);
+    } catch { }
   };
 
   const fetchWeather = async (lat: number, lon: number) => {
     try {
-      setLoadingWeather(true);
-      const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`
-      );
-      const data = await res.json();
-      setWeather(data.current_weather);
-      setLoadingWeather(false);
-    } catch (e) {
-      console.log(e);
-      setLoadingWeather(false);
-    }
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+      const response = await fetch(url);
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data?.current_weather?.temperature !== undefined) {
+        setWeather({
+          temp: Math.round(data.current_weather.temperature),
+          desc: getWeatherDescription(data.current_weather.weathercode),
+        });
+      }
+    } catch { }
   };
 
-  const fetchSafePlaces = async (lat: number, lon: number) => {
+  const getWeatherDescription = (code: number): string => {
+    if (code === 0) return 'Clear';
+    if (code <= 3) return 'Partly Cloudy';
+    if (code <= 48) return 'Foggy';
+    if (code <= 67) return 'Rainy';
+    if (code <= 77) return 'Snowy';
+    if (code <= 82) return 'Showers';
+    if (code <= 99) return 'Thunderstorm';
+    return 'Clear';
+  };
+
+  const getWeatherEmoji = (description: string): string => {
+    if (description.includes('Clear')) return '☀️';
+    if (description.includes('Cloudy')) return '⛅';
+    if (description.includes('Foggy')) return '🌫️';
+    if (description.includes('Rainy')) return '🌧️';
+    if (description.includes('Snowy')) return '❄️';
+    if (description.includes('Showers')) return '🌦️';
+    if (description.includes('Thunderstorm')) return '⛈️';
+    return '☀️';
+  };
+
+  const fetchRecommendedPlaces = async (lat: number, lon: number) => {
     try {
-      setLoadingSafePlaces(true);
-      
-      // Overpass API query for safe places
-      // Tier 1: Police, Hospitals, Fire Stations
-      // Tier 2: Pharmacies, Hotels, Railway stations
-      const radius = 20000; // 20km radius
+      setLoadingPlaces(true);
+      const radius = 5000;
       const query = `
         [out:json][timeout:25];
         (
-          node["amenity"="police"](around:${radius},${lat},${lon});
-          node["amenity"="hospital"](around:${radius},${lat},${lon});
-          node["amenity"="clinic"](around:${radius},${lat},${lon});
-          node["amenity"="fire_station"](around:${radius},${lat},${lon});
-          node["amenity"="pharmacy"](around:${radius},${lat},${lon});
-          node["tourism"="hotel"](around:${radius},${lat},${lon});
-          node["railway"="station"](around:${radius},${lat},${lon});
+          node["tourism"="attraction"](around:${radius},${lat},${lon});
+          node["tourism"="museum"](around:${radius},${lat},${lon});
+          node["amenity"="restaurant"](around:${radius},${lat},${lon});
+          node["amenity"="cafe"](around:${radius},${lat},${lon});
+          node["leisure"="park"](around:${radius},${lat},${lon});
         );
-        out body;
+        out body;>;out skel qt;
       `;
-
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: query,
-      });
-
+      const response = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
+      if (!response.ok) return;
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) return;
       const data = await response.json();
-      
-      // Transform data for markers
-      const places = data.elements.map((place: any) => ({
-        id: place.id,
-        latitude: place.lat,
-        longitude: place.lon,
-        name: place.tags?.name || 'Safe Place',
-        type: place.tags?.amenity || place.tags?.tourism || place.tags?.railway || 'safe_place',
-      }));
+      const places = data.elements
+        .filter((p: any) => p.lat && p.lon && p.tags?.name)
+        .map((p: any) => {
+          const type = p.tags?.tourism || p.tags?.amenity || p.tags?.leisure || 'place';
+          return { id: p.id, latitude: p.lat, longitude: p.lon, name: p.tags.name, type, category: getCategoryFromType(type) };
+        })
+        .slice(0, 8);
+      setRecommendedPlaces(places);
+    } catch { }
+    finally { setLoadingPlaces(false); }
+  };
 
-      setSafePlaces(places);
-      setLoadingSafePlaces(false);
-      console.log(`Found ${places.length} safe places nearby`);
-    } catch (e) {
-      console.error('Error fetching safe places:', e);
-      setLoadingSafePlaces(false);
+  const getCategoryFromType = (type: string): string => {
+    if (type.includes('attraction') || type.includes('museum')) return 'Landmark';
+    if (type.includes('restaurant') || type.includes('cafe')) return 'Food';
+    if (type.includes('park')) return 'Park';
+    return 'Attraction';
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'Landmark': return <Camera size={18} color="#3B82F6" />;
+      case 'Food': return <UtensilsCrossed size={18} color="#3B82F6" />;
+      case 'Park': return <TreePine size={18} color="#3B82F6" />;
+      default: return <MapPin size={18} color="#3B82F6" />;
     }
   };
 
-  const toggleSafeHavenMode = () => {
-    const newMode = !safeHavenMode;
-    setSafeHavenMode(newMode);
-    
-    if (newMode && location) {
-      // Fetch safe places when activating mode
-      fetchSafePlaces(location.latitude, location.longitude);
-    } else {
-      // Clear markers when deactivating
-      setSafePlaces([]);
-    }
-  };
+  const isScamNearby = nearbyScams > 0;
 
   return (
     <View style={styles.container}>
-      {/* MAP */}
-      {location ? (
-        <MapView
-          style={StyleSheet.absoluteFillObject}
-          region={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.05,
-            longitudeDelta: 0.05,
-          }}
-          showsUserLocation
-        >
-          {/* Safe Haven Markers */}
-          {safeHavenMode && safePlaces.map((place) => (
-            <Marker
-              key={place.id}
-              coordinate={{
-                latitude: place.latitude,
-                longitude: place.longitude,
-              }}
-              title={place.name}
-              description={place.type.replace('_', ' ').toUpperCase()}
-              pinColor="#DC2626"
-            />
-          ))}
-        </MapView>
-      ) : (
-        <View style={styles.mapFallback}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+      {/* HEADER */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>{greeting},</Text>
+          <Text style={styles.userName}>{userName} 👋</Text>
         </View>
-      )}
-
-      {/* TOP OVERLAY */}
-      <View style={styles.topOverlay}>
-        {/* SAFE HAVEN MODE BANNER */}
-        {safeHavenMode && (
-          <View style={styles.safeHavenBanner}>
-            <ShieldCheck size={18} color="#FFF" />
-            <Text style={styles.safeHavenBannerText}>
-              Safe Haven Mode Active • {safePlaces.length} safe places nearby
-            </Text>
-          </View>
-        )}
-
-        {/* HEADER */}
-        <View style={styles.headerCard}>
-          <Text style={styles.greeting}>
-            • {greeting}, <Text style={styles.name}>{name}</Text>
-          </Text>
-
-          <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconBtn}>
-              <Bell size={20} color="#FFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.profileBtn}
-              onPress={() => navigation.navigate('Profile')}
-            >
-              <User size={20} color="#FFF" />
-            </TouchableOpacity>
-          </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Safety', { screen: 'SafetyMain' })}>
+            <Bell size={22} color="#F1F5F9" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Profile')}>
+            <User size={22} color="#F1F5F9" />
+          </TouchableOpacity>
         </View>
-
-        {/* WEATHER */}
-        <TouchableOpacity
-          style={styles.weatherCard}
-          onPress={() => navigation.navigate('WeatherDetails')}
-        >
-          {loadingWeather ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : weather ? (
-            <>
-              <Text style={styles.weatherIcon}>
-                {getWeatherInfo(weather.weathercode).icon}
-              </Text>
-              <View style={styles.weatherInfo}>
-                <Text style={styles.weatherTemp}>
-                  {Math.round(weather.temperature)}°C
-                </Text>
-                <Text style={styles.weatherDesc}>
-                  {getWeatherInfo(weather.weathercode).desc}
-                </Text>
-              </View>
-            </>
-          ) : (
-            <Text style={styles.weatherTemp}>--°C</Text>
-          )}
-        </TouchableOpacity>
       </View>
 
-      {/* EXPANDABLE MENU - Grid Layout with Animations */}
-      {menuExpanded && (
-        <View style={styles.expandedMenuContainer}>
-          <View style={styles.menuGrid}>
-          {/* SAFE HAVEN */}
-          <Animated.View
-            style={[
-              styles.menuItemWrapper,
-              {
-                opacity: menuAnim1,
-                transform: [
-                  {
-                    translateY: menuAnim1.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                  {
-                    scale: menuAnim1.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.8, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.menuItem,
-                safeHavenMode && styles.menuItemActive,
-              ]}
-              onPress={() => {
-                setMenuExpanded(false);
-                toggleSafeHavenMode();
-              }}
-            >
-              <View style={[
-                styles.menuIconCircle,
-                safeHavenMode && styles.menuIconCircleActive,
-              ]}>
-                <ShieldCheck size={20} color="#FFF" />
-              </View>
-              <Text style={styles.menuLabel}>
-                {safeHavenMode ? 'Exit Safe Haven' : 'Safe Haven'}
-              </Text>
-              {loadingSafePlaces && (
-                <ActivityIndicator size="small" color="#3B82F6" />
-              )}
-            </TouchableOpacity>
-          </Animated.View>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-          {/* PLAN TRIP */}
-          <Animated.View
-            style={[
-              styles.menuItemWrapper,
-              {
-                opacity: menuAnim2,
-                transform: [
-                  {
-                    translateY: menuAnim2.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                  {
-                    scale: menuAnim2.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.8, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuExpanded(false);
-                navigation.navigate('TripPlanner');
-              }}
-            >
-              <View style={styles.menuIconCircle}>
-                <Calendar size={20} color="#FFF" />
-              </View>
-              <Text style={styles.menuLabel}>Plan Trip</Text>
-            </TouchableOpacity>
-          </Animated.View>
+        {/* SAFETY STATUS CARD */}
+        <TouchableOpacity
+          style={[styles.statusCard, isScamNearby && styles.statusCardWarning]}
+          onPress={() => isScamNearby ? navigation.navigate('Safety', { screen: 'ScamAlert' }) : null}
+          activeOpacity={isScamNearby ? 0.7 : 1}
+        >
+          <View style={[styles.statusIconBg, isScamNearby && styles.statusIconBgWarning]}>
+            {isScamNearby
+              ? <AlertTriangle size={28} color="#F59E0B" strokeWidth={2.5} />
+              : <CheckCircle size={28} color="#10B981" strokeWidth={2.5} />
+            }
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.statusLabel}>Safety Status</Text>
+            <Text style={[styles.statusValue, isScamNearby && styles.statusValueWarning]}>
+              {isScamNearby ? `⚠️ SCAM ALERT NEARBY` : 'SECURE'}
+            </Text>
+            {isScamNearby && (
+              <Text style={styles.statusSub}>{nearbyScams} report{nearbyScams > 1 ? 's' : ''} within 5km · Tap to view</Text>
+            )}
+          </View>
+        </TouchableOpacity>
 
-          {/* NAVIGATE */}
-          <Animated.View
-            style={[
-              styles.menuItemWrapper,
-              {
-                opacity: menuAnim3,
-                transform: [
-                  {
-                    translateY: menuAnim3.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                  {
-                    scale: menuAnim3.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.8, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuExpanded(false);
-                navigation.navigate('Map');
-              }}
-            >
-              <View style={styles.menuIconCircle}>
-                <Navigation2 size={20} color="#FFF" />
-              </View>
-              <Text style={styles.menuLabel}>Navigate</Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          {/* SPLIT BUDGET */}
-          <Animated.View
-            style={[
-              styles.menuItemWrapper,
-              {
-                opacity: menuAnim4,
-                transform: [
-                  {
-                    translateY: menuAnim4.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                  {
-                    scale: menuAnim4.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.8, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuExpanded(false);
-                navigation.navigate('TripBudget');
-              }}
-            >
-              <View style={styles.menuIconCircle}>
-                <DollarSign size={20} color="#FFF" />
-              </View>
-              <Text style={styles.menuLabel}>Split Budget</Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          {/* WEATHER */}
-          <Animated.View
-            style={[
-              styles.menuItemWrapper,
-              {
-                opacity: menuAnim5,
-                transform: [
-                  {
-                    translateY: menuAnim5.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                  {
-                    scale: menuAnim5.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.8, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuExpanded(false);
-                navigation.navigate('WeatherDetails');
-              }}
-            >
-              <View style={styles.menuIconCircle}>
-                <Cloud size={20} color="#FFF" />
-              </View>
-              <Text style={styles.menuLabel}>Weather</Text>
-            </TouchableOpacity>
-          </Animated.View>
+        {/* WEATHER CARD */}
+        <View style={styles.weatherCard}>
+          <Text style={styles.weatherEmoji}>{getWeatherEmoji(weather.desc)}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.weatherLabel}>Local Weather</Text>
+            <Text style={styles.weatherTemp}>{weather.temp}°C · {weather.desc}</Text>
           </View>
         </View>
-      )}
 
-      {/* FLOATING ACTION BUTTON */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setMenuExpanded(!menuExpanded)}
-        activeOpacity={0.8}
-      >
-        {menuExpanded ? (
-          <X size={28} color="#FFF" strokeWidth={2.5} />
+        {/* QUICK ACTIONS */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionGrid}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Home', { screen: 'TripPlanner' })}>
+            <View style={[styles.actionIcon, { backgroundColor: '#2563EB' }]}>
+              <Calendar size={22} color="#FFF" />
+            </View>
+            <Text style={styles.actionLabel}>Plan Trip</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Map')}>
+            <View style={[styles.actionIcon, { backgroundColor: '#0891B2' }]}>
+              <Navigation2 size={22} color="#FFF" />
+            </View>
+            <Text style={styles.actionLabel}>Navigate</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Profile', { screen: 'SavedTrips' })}>
+            <View style={[styles.actionIcon, { backgroundColor: '#7C3AED' }]}>
+              <BookMarked size={22} color="#FFF" />
+            </View>
+            <Text style={styles.actionLabel}>Saved Trips</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Community', { screen: 'CommunityMain' })}>
+            <View style={[styles.actionIcon, { backgroundColor: '#059669' }]}>
+              <Users size={22} color="#FFF" />
+            </View>
+            <Text style={styles.actionLabel}>Community</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* NEARBY PLACES */}
+        <Text style={styles.sectionTitle}>Nearby Recommended</Text>
+        {loadingPlaces ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#3B82F6" />
+            <Text style={styles.loadingText}>Finding great spots…</Text>
+          </View>
+        ) : recommendedPlaces.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <MapPin size={36} color="#334155" />
+            <Text style={styles.emptyText}>No places found nearby</Text>
+          </View>
         ) : (
-          <Plus size={28} color="#FFF" strokeWidth={2.5} />
+          recommendedPlaces.map((place) => (
+            <TouchableOpacity
+              key={place.id}
+              style={styles.placeCard}
+              onPress={() => navigation.navigate('Map', { screen: 'MapMain', params: { destination: { latitude: place.latitude, longitude: place.longitude, name: place.name, type: place.type }, startNavigation: true } })}
+            >
+              <View style={styles.placeIconContainer}>
+                {getCategoryIcon(place.category)}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.placeName} numberOfLines={1}>{place.name}</Text>
+                <Text style={styles.placeCategory}>{place.category}</Text>
+              </View>
+              <Navigation2 size={18} color="#334155" />
+            </TouchableOpacity>
+          ))
         )}
-      </TouchableOpacity>
+      </ScrollView>
 
       {/* FLOATING SOS */}
-      <TouchableOpacity
-        style={styles.sosButton}
-        onPress={() => navigation.navigate('SOS')}
-        activeOpacity={0.85}
-      >
+      <TouchableOpacity style={styles.sosButton} onPress={() => navigation.navigate('SOS')} activeOpacity={0.85}>
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-/* ===================== STYLES ===================== */
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B1220',
-  },
+  container: { flex: 1, backgroundColor: '#080E1A' },
 
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  mapFallback: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  topOverlay: {
-    position: 'absolute',
-    top: 55,
-    left: 16,
-    right: 16,
-  },
-
-  safeHavenBanner: {
-    backgroundColor: 'rgba(220, 38, 38, 0.95)',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-
-  safeHavenBannerText: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-
-  headerCard: {
-    backgroundColor: 'rgba(15,23,42,0.95)',
-    padding: 14,
-    borderRadius: 18,
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingTop: 56,
+    paddingHorizontal: 20,
+    paddingBottom: 18,
+    backgroundColor: '#0B1220',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  greeting: { fontSize: 13, color: '#64748B', fontWeight: '500' },
+  userName: { fontSize: 22, fontWeight: '800', color: '#F1F5F9', marginTop: 2 },
+  headerActions: { flexDirection: 'row', gap: 10 },
+  iconButton: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: '#1E293B',
+    justifyContent: 'center', alignItems: 'center',
   },
 
-  greeting: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 },
 
-  name: {
-    fontWeight: '700',
-  },
-
-  headerIcons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-
-  iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  profileBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  weatherCard: {
-    alignSelf: 'flex-end',
-    backgroundColor: 'rgba(15,23,42,0.95)',
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 20,
+  // Status Card
+  statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-
-  weatherIcon: {
-    fontSize: 32,
-  },
-
-  weatherInfo: {
-    flexDirection: 'column',
-  },
-
-  weatherTemp: {
-    color: '#FFF',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-
-  weatherDesc: {
-    color: '#94A3B8',
-    fontSize: 10,
-    marginTop: 2,
-    letterSpacing: 1,
-  },
-
-  /* EXPANDABLE MENU - Grid Layout */
-  expandedMenuContainer: {
-    position: 'absolute',
-    bottom: 180,
-    left: 20,
-    right: 20,
-  },
-
-  menuGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'flex-start',
-  },
-
-  menuItemWrapper: {
-    width: '48%',
-  },
-
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.98)',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
-  },
-
-  menuItemActive: {
-    backgroundColor: 'rgba(220, 38, 38, 0.15)',
-    borderColor: 'rgba(220, 38, 38, 0.5)',
-    borderWidth: 2,
-  },
-
-  menuIconCircle: {
-    width: 36,
-    height: 36,
+    backgroundColor: '#0F2218',
+    padding: 16,
     borderRadius: 18,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
+    marginBottom: 14,
+    gap: 14,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+  },
+  statusCardWarning: { backgroundColor: '#1A1300', borderColor: '#F59E0B' },
+  statusIconBg: {
+    width: 50, height: 50, borderRadius: 25,
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  statusIconBgWarning: { backgroundColor: 'rgba(245,158,11,0.12)' },
+  statusLabel: { fontSize: 12, color: '#64748B', marginBottom: 2 },
+  statusValue: { fontSize: 17, fontWeight: '800', color: '#10B981', letterSpacing: 0.5 },
+  statusValueWarning: { color: '#F59E0B', fontSize: 14 },
+  statusSub: { fontSize: 11, color: '#94A3B8', marginTop: 3 },
+
+  // Weather Card
+  weatherCard: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#0D1930',
+    padding: 16,
+    borderRadius: 18,
+    gap: 14,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(37,99,235,0.3)',
   },
+  weatherEmoji: { fontSize: 36 },
+  weatherLabel: { fontSize: 12, color: '#64748B', marginBottom: 3 },
+  weatherTemp: { fontSize: 16, fontWeight: '700', color: '#F1F5F9' },
 
-  menuIconCircleActive: {
-    backgroundColor: '#DC2626',
-  },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#F1F5F9', marginBottom: 14 },
 
-  menuLabel: {
-    color: '#F1F5F9',
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-
-  /* FLOATING ACTION BUTTON */
-  fab: {
-    position: 'absolute',
-    bottom: 110,
-    right: 20,
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
+  // Quick Actions Grid
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28 },
+  actionCard: {
+    width: '47%',
+    backgroundColor: '#0F172A',
+    padding: 16,
+    borderRadius: 18,
     alignItems: 'center',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 10,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
   },
+  actionIcon: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
+  actionLabel: { fontSize: 13, fontWeight: '600', color: '#CBD5E1' },
 
-  /* FLOATING SOS BUTTON */
+  // Place cards
+  placeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 10,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  placeIconContainer: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(59,130,246,0.12)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  placeName: { fontSize: 14, fontWeight: '600', color: '#F1F5F9', marginBottom: 2 },
+  placeCategory: { fontSize: 12, color: '#4B5563' },
+
+  loadingContainer: { alignItems: 'center', paddingVertical: 30, gap: 10 },
+  loadingText: { color: '#4B5563', fontSize: 13 },
+  emptyContainer: { alignItems: 'center', paddingVertical: 32, gap: 10 },
+  emptyText: { color: '#4B5563', fontSize: 13 },
+
   sosButton: {
-    position: 'absolute',
-    bottom: 28,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    position: 'absolute', bottom: 24, right: 20,
+    width: 58, height: 58, borderRadius: 29,
     backgroundColor: '#DC2626',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5, shadowRadius: 10, elevation: 8,
   },
-
-  sosText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
+  sosText: { color: '#FFF', fontWeight: '800', fontSize: 15, letterSpacing: 1 },
 });

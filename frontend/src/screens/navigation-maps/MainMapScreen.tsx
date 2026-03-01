@@ -12,10 +12,19 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { Search, X, Navigation, MapPin, ThumbsUp, Shield, Zap, Car, Bike, PersonStanding, Wifi, WifiOff } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Search, X, Navigation, MapPin, ThumbsUp, Shield, Zap, Car, Bike, PersonStanding, Wifi, WifiOff, AlertTriangle } from 'lucide-react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
 import { geocodeLocation, searchPlaces } from '../../services/placesService';
+import { 
+  calculateRouteWithTraffic, 
+  getTrafficIncidents, 
+  getTrafficFlow, 
+  getTrafficColor,
+  getIncidentIcon,
+  TrafficIncident,
+  TrafficFlowSegment 
+} from '../../services/tomtomService';
 
 const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImM5ZWJlMTk1ZDk3MjQ3NzI4MWU1Njc0ZmEwYzlhOGYwIiwiaCI6Im11cm11cjY0In0=';
 const ORS_DIRECTIONS_URL = 'https://api.openrouteservice.org/v2/directions/driving-car';
@@ -28,6 +37,7 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 export default function MainMapScreen() {
   const mapRef = useRef<MapView>(null);
   const navigation = useNavigation();
+  const route = useRoute<any>();
   const searchTimeout = useRef<any>(null);
 
   const [userLocation, setUserLocation] = useState<any>(null);
@@ -52,6 +62,10 @@ export default function MainMapScreen() {
     cycling: { coords: any[]; distance: number; duration: number } | null;
     foot: { coords: any[]; distance: number; duration: number } | null;
   }>({ driving: null, cycling: null, foot: null });
+  const [trafficIncidents, setTrafficIncidents] = useState<TrafficIncident[]>([]);
+  const [trafficFlow, setTrafficFlow] = useState<TrafficFlowSegment[]>([]);
+  const [showTrafficLayer, setShowTrafficLayer] = useState(true);
+  const [useTomTomRouting, setUseTomTomRouting] = useState(true);
 
   /* ---------------- CLOSE ROUTE POPUP ---------------- */
   const closeRoutePopup = () => {
@@ -63,6 +77,8 @@ export default function MainMapScreen() {
     setRoutes({ driving: null, cycling: null, foot: null });
     setStartLocationText('');
     setStartLocationCoords(null);
+    setTrafficIncidents([]);
+    setTrafficFlow([]);
   };
 
   /* ---------------- GET USER LOCATION & NETWORK STATUS ---------------- */
@@ -99,6 +115,34 @@ export default function MainMapScreen() {
       unsubscribe();
     };
   }, []);
+
+  /* ---------------- HANDLE INCOMING DESTINATION FROM SAFE HAVEN ---------------- */
+  useEffect(() => {
+    if (route.params?.destination && route.params?.startNavigation && userLocation) {
+      const { destination } = route.params;
+      console.log('🛡️ Safe Haven destination received:', destination);
+      
+      // Set destination
+      setDestinationText(destination.name || 'Safe Place');
+      setDestinationCoords({
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      });
+
+      // Set start location to user's current location
+      setStartLocationCoords(userLocation);
+      setStartLocationText('Current Location');
+
+      // Auto calculate route
+      setTimeout(() => {
+        searchWithCoords(
+          userLocation,
+          { latitude: destination.latitude, longitude: destination.longitude },
+          destination.name || 'Safe Place'
+        );
+      }, 500);
+    }
+  }, [route.params, userLocation]);
 
   /* ---------------- FORMAT TIME ---------------- */
   const formatTime = (minutes: number) => {
@@ -197,6 +241,70 @@ export default function MainMapScreen() {
       cycling: cyclingMinutes,
       foot: walkingMinutes,
     };
+  };
+
+  /* ---------------- FETCH TRAFFIC DATA ---------------- */
+  const fetchTrafficData = async (
+    routeCoords: { latitude: number; longitude: number }[],
+    start: { latitude: number; longitude: number },
+    dest: { latitude: number; longitude: number }
+  ) => {
+    try {
+      console.log('🚦 Fetching traffic data...');
+      
+      // Calculate tighter bounding box - only 0.02 degrees (~2km) buffer
+      const lats = routeCoords.map(c => c.latitude);
+      const lons = routeCoords.map(c => c.longitude);
+      const bbox = {
+        minLat: Math.min(...lats) - 0.02,
+        minLon: Math.min(...lons) - 0.02,
+        maxLat: Math.max(...lats) + 0.02,
+        maxLon: Math.max(...lons) + 0.02,
+      };
+
+      // Fetch traffic incidents (fast, single call)
+      const incidents = await getTrafficIncidents(bbox);
+      
+      // Filter incidents to only those very close to the route (within ~500m)
+      const nearbyIncidents = incidents.filter(incident => {
+        return routeCoords.some(coord => {
+          const distance = getDistance(
+            { latitude: incident.latitude, longitude: incident.longitude },
+            coord
+          );
+          return distance < 0.5; // within 500 meters
+        });
+      });
+      
+      setTrafficIncidents(nearbyIncidents);
+      console.log(`✅ Found ${nearbyIncidents.length} incidents near route (${incidents.length} total in area)`);
+
+      // Fetch traffic flow data for route segments
+      const flowData = await getTrafficFlow(routeCoords);
+      setTrafficFlow(flowData);
+      console.log(`✅ Fetched traffic flow for ${flowData.length} segments`);
+    } catch (error) {
+      console.error('❌ Error fetching traffic data:', error);
+      // Don't block route display if traffic fails
+    }
+  };
+
+  // Helper: Calculate distance between two points in km
+  const getDistance = (
+    point1: { latitude: number; longitude: number },
+    point2: { latitude: number; longitude: number }
+  ): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = ((point2.latitude - point1.latitude) * Math.PI) / 180;
+    const dLon = ((point2.longitude - point1.longitude) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((point1.latitude * Math.PI) / 180) *
+        Math.cos((point2.latitude * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   };
 
   /* ---------------- SELECT SUGGESTION ---------------- */
@@ -503,6 +611,11 @@ export default function MainMapScreen() {
         distance: `${(summary.distance / 1000).toFixed(1)} km`,
       });
 
+      // Fetch traffic data for the route
+      if (showTrafficLayer && coords.length > 0) {
+        fetchTrafficData(coords, start, dest);
+      }
+
       /* FIT MAP */
       setTimeout(() => {
         mapRef.current?.fitToCoordinates(
@@ -606,6 +719,8 @@ export default function MainMapScreen() {
     setRoutes({ driving: null, cycling: null, foot: null });
     setStartLocationText('');
     setStartLocationCoords(null);
+    setTrafficIncidents([]);
+    setTrafficFlow([]);
   };
 
   /* ---------------- START NAVIGATION ---------------- */
@@ -726,11 +841,12 @@ export default function MainMapScreen() {
           </Marker>
         )}
 
+        {/* MAIN ROUTE LINE */}
         {routeCoords.length > 0 && (
           <Polyline
-            key={selectedMode}
+            key={`route-${selectedMode}`}
             coordinates={routeCoords}
-            strokeWidth={5}
+            strokeWidth={6}
             strokeColor={
               selectedMode === 'driving' ? '#3B82F6' : 
               selectedMode === 'cycling' ? '#22C55E' : 
@@ -739,6 +855,39 @@ export default function MainMapScreen() {
             lineDashPattern={selectedMode === 'foot' ? [10, 10] : undefined}
           />
         )}
+
+        {/* TRAFFIC FLOW OVERLAYS - drawn on top of route */}
+        {showTrafficLayer && trafficFlow.map((segment, index) => {
+          const trafficColor = getTrafficColor(segment.currentSpeed, segment.freeFlowSpeed);
+          // Only show if there's actual congestion (not green)
+          if (trafficColor !== '#10B981') {
+            return (
+              <Polyline
+                key={`traffic-${index}`}
+                coordinates={segment.coordinates}
+                strokeWidth={8}
+                strokeColor={trafficColor}
+                lineCap="round"
+                lineJoin="round"
+              />
+            );
+          }
+          return null;
+        })}
+
+        {/* TRAFFIC INCIDENTS */}
+        {showTrafficLayer && trafficIncidents.map((incident) => (
+          <Marker
+            key={incident.id}
+            coordinate={{ latitude: incident.latitude, longitude: incident.longitude }}
+            title={incident.description}
+            description={incident.from && incident.to ? `${incident.from} to ${incident.to}` : undefined}
+          >
+            <View style={styles.incidentMarker}>
+              <Text style={styles.incidentIcon}>{getIncidentIcon(incident.iconCategory)}</Text>
+            </View>
+          </Marker>
+        ))}
       </MapView>
 
       {/* SEARCH BAR */}
@@ -892,13 +1041,26 @@ export default function MainMapScreen() {
           )}
         </>
       ) : (
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={() => setSearchOpen(true)}
-        >
-          <Search size={18} color="#fff" />
-          <Text style={styles.searchText}>Where to?</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={() => setSearchOpen(true)}
+          >
+            <Search size={18} color="#fff" />
+            <Text style={styles.searchText}>Where to?</Text>
+          </TouchableOpacity>
+
+          {/* TRAFFIC TOGGLE BUTTON */}
+          <TouchableOpacity
+            style={[styles.trafficButton, showTrafficLayer && styles.trafficButtonActive]}
+            onPress={() => setShowTrafficLayer(!showTrafficLayer)}
+          >
+            <AlertTriangle size={20} color={showTrafficLayer ? "#FFF" : "#94A3B8"} />
+            <Text style={[styles.trafficButtonText, showTrafficLayer && styles.trafficButtonTextActive]}>
+              Traffic
+            </Text>
+          </TouchableOpacity>
+        </>
       )}
 
       {/* LOADING */}
@@ -1370,5 +1532,60 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FFF',
+  },
+
+  incidentMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#DC2626',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+
+  incidentIcon: {
+    fontSize: 16,
+  },
+
+  trafficButton: {
+    position: 'absolute',
+    top: 140,
+    right: 16,
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  trafficButtonActive: {
+    backgroundColor: '#F97316',
+    borderColor: '#F97316',
+  },
+
+  trafficButtonText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  trafficButtonTextActive: {
+    color: '#FFF',
   },
 });

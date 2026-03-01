@@ -1,21 +1,15 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text } from 'react-native';
+import SafetyDashboard from '../../screens/safety-emergency/SafetyDashboard';
+import ScamAlertScreen from '../../screens/safety-emergency/ScamAlertScreen';
 
 const Stack = createNativeStackNavigator();
-
-function SafetyPlaceholder() {
-  return (
-    <View style={{ flex: 1, backgroundColor: '#0B1220', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ color: '#fff' }}>Safety Screen</Text>
-    </View>
-  );
-}
 
 export default function SafetyStack() {
   return (
     <Stack.Navigator id="SafetyStack" screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="SafetyMain" component={SafetyPlaceholder} />
+      <Stack.Screen name="SafetyMain" component={SafetyDashboard} />
+      <Stack.Screen name="ScamAlert" component={ScamAlertScreen} />
     </Stack.Navigator>
   );
 }

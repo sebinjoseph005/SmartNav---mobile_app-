@@ -18,6 +18,7 @@ import {
   FileText,
   LogOut,
   ChevronRight,
+  BookMarked,
 } from 'lucide-react-native';
 import { useNavigation, CommonActions, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
@@ -165,6 +166,22 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* SAVED TRIPS QUICK ACCESS */}
+        <TouchableOpacity
+          style={styles.savedTripsCard}
+          onPress={() => navigation.navigate('SavedTrips')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.savedTripsIcon}>
+            <BookMarked size={22} color="#2563EB" />
+          </View>
+          <View style={styles.savedTripsContent}>
+            <Text style={styles.savedTripsTitle}>My Saved Trips</Text>
+            <Text style={styles.savedTripsSubtitle}>View and manage your itineraries</Text>
+          </View>
+          <ChevronRight size={20} color="#94A3B8" />
+        </TouchableOpacity>
+
         {/* SETTINGS SECTION - Only shown when settings button is clicked */}
         {showSettings && (
           <Animated.View
@@ -188,7 +205,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Settings</Text>
-              
+
               {settingsOptions.map((option, index) => (
                 <TouchableOpacity
                   key={index}
@@ -404,5 +421,37 @@ const styles = StyleSheet.create({
 
   bottomSpacing: {
     height: 40,
+  },
+
+  savedTripsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.98)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  savedTripsIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  savedTripsContent: { flex: 1 },
+  savedTripsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
+    marginBottom: 2,
+  },
+  savedTripsSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
   },
 });
