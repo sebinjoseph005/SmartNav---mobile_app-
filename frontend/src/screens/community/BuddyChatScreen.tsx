@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
-    FlatList, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+    FlatList, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Send, MapPin, Calendar, Users } from 'lucide-react-native';
@@ -24,16 +24,23 @@ export default function BuddyChatScreen() {
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [myName, setMyName] = useState('Traveler');
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
+        const kShow = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+        const kHide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+
         loadUser();
         if (buddy?.chat_messages) {
             setMessages(buddy.chat_messages);
         }
-        // Poll for new messages every 5 seconds
         const interval = setInterval(refreshMessages, 5000);
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            kShow.remove();
+            kHide.remove();
+        };
     }, []);
 
     const loadUser = async () => {
@@ -103,48 +110,54 @@ export default function BuddyChatScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header with trip info */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <ArrowLeft color="#fff" size={22} />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                    <View style={styles.tripDestRow}>
-                        <MapPin size={13} color="#2563EB" />
-                        <Text style={styles.tripDest}>{buddy?.destination}</Text>
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior="padding"
+                keyboardVerticalOffset={0}
+            >
+                {/* Header with trip info */}
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                        <ArrowLeft color="#fff" size={22} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                        <View style={styles.tripDestRow}>
+                            <MapPin size={13} color="#2563EB" />
+                            <Text style={styles.tripDest}>{buddy?.destination}</Text>
+                        </View>
+                        <Text style={styles.tripMeta}>{buddy?.travel_date} · {buddy?.spots_left} spots</Text>
                     </View>
-                    <Text style={styles.tripMeta}>{buddy?.travel_date} · {buddy?.spots_left} spots</Text>
                 </View>
-            </View>
 
-            {/* Trip description banner */}
-            <View style={styles.descBanner}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <Users size={14} color="#2563EB" />
-                    <Text style={styles.descAuthor}>Posted by {buddy?.author_name}</Text>
-                </View>
-                <Text style={styles.descText} numberOfLines={2}>{buddy?.description}</Text>
-            </View>
-
-            {/* Messages */}
-            <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={item => item.id}
-                renderItem={renderMessage}
-                contentContainerStyle={styles.messageList}
-                ListEmptyComponent={
-                    <View style={styles.emptyChat}>
-                        <Text style={styles.emptyChatText}>No messages yet. Say hello! 👋</Text>
+                {/* Trip description banner */}
+                <View style={styles.descBanner}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <Users size={14} color="#2563EB" />
+                        <Text style={styles.descAuthor}>Posted by {buddy?.author_name}</Text>
                     </View>
-                }
-                onLayout={() => messages.length > 0 && flatListRef.current?.scrollToEnd({ animated: false })}
-            />
+                    <Text style={styles.descText} numberOfLines={2}>{buddy?.description}</Text>
+                </View>
 
-            {/* Input */}
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                <View style={styles.inputBar}>
+                {/* Messages */}
+                <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    keyExtractor={item => item.id}
+                    renderItem={renderMessage}
+                    contentContainerStyle={styles.messageList}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
+                    ListEmptyComponent={
+                        <View style={styles.emptyChat}>
+                            <Text style={styles.emptyChatText}>No messages yet. Say hello! 👋</Text>
+                        </View>
+                    }
+                    onLayout={() => messages.length > 0 && flatListRef.current?.scrollToEnd({ animated: false })}
+                />
+
+                {/* Input */}
+                <View style={[styles.inputBar, { paddingBottom: Platform.OS === 'ios' && !isKeyboardVisible ? 34 : 12 }]}>
                     <TextInput
                         style={styles.textInput}
                         placeholder="Type a message…"

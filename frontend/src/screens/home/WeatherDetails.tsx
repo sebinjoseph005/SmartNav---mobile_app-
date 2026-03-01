@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCachedLocation } from '../../services/locationCache';
 
 /* ---------------- INTERFACES ---------------- */
 
@@ -65,7 +66,7 @@ const getWeatherInfo = (code: number) => {
 
 export default function WeatherDetails() {
   const navigation = useNavigation<any>();
-  
+
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [location, setLocation] = useState<LocationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,18 +84,15 @@ export default function WeatherDetails() {
   const getCurrentLocationWeather = async () => {
     try {
       setLoading(true);
-      
-      // Request permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+
+      const loc = await getCachedLocation();
+      if (!loc) {
         Alert.alert('Permission Denied', 'Location access is required for weather.');
         setLoading(false);
         return;
       }
 
-      // Get location
-      const loc = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = loc.coords;
+      const { latitude, longitude } = loc;
 
       // Reverse geocode to get city name
       const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
@@ -105,7 +103,7 @@ export default function WeatherDetails() {
         latitude,
         longitude,
       };
-      
+
       setLocation(locationData);
 
       // Fetch weather
@@ -169,13 +167,13 @@ export default function WeatherDetails() {
       setSearching(true);
       setShowSuggestions(false);
       setSearchQuery('');
-      
+
       const locationData = {
         name: suggestion.name + (suggestion.country ? `, ${suggestion.country}` : ''),
         latitude: suggestion.latitude,
         longitude: suggestion.longitude,
       };
-      
+
       setLocation(locationData);
       await fetchWeather(suggestion.latitude, suggestion.longitude);
       setSearching(false);
@@ -192,7 +190,7 @@ export default function WeatherDetails() {
     try {
       setSearching(true);
       setShowSuggestions(false);
-      
+
       const response = await fetch(
         `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(searchQuery)}&count=1&language=en&format=json`
       );
@@ -206,13 +204,13 @@ export default function WeatherDetails() {
       }
 
       const result = data.results[0];
-      
+
       const locationData = {
         name: result.name + (result.country ? `, ${result.country}` : ''),
         latitude: result.latitude,
         longitude: result.longitude,
       };
-      
+
       setLocation(locationData);
       await fetchWeather(result.latitude, result.longitude);
       setSearchQuery('');
@@ -283,8 +281,8 @@ export default function WeatherDetails() {
               returnKeyType="search"
               onBlur={() => setTimeout(() => setShowSuggestions(false), 500)}
             />
-            <TouchableOpacity 
-              style={styles.searchButton} 
+            <TouchableOpacity
+              style={styles.searchButton}
               onPress={searchLocation}
               disabled={searching}
             >
@@ -295,11 +293,11 @@ export default function WeatherDetails() {
               )}
             </TouchableOpacity>
           </View>
-          
+
           {/* SUGGESTIONS DROPDOWN */}
           {showSuggestions && suggestions.length > 0 && (
             <View style={styles.suggestionsContainer}>
-              <ScrollView 
+              <ScrollView
                 nestedScrollEnabled={true}
                 keyboardShouldPersistTaps="always"
                 style={styles.suggestionsScroll}
@@ -369,7 +367,7 @@ export default function WeatherDetails() {
           {weather.hourly?.time?.slice(0, 24).map((time, idx) => {
             const hour = new Date(time);
             const temp = Math.round(weather.hourly.temperature_2m?.[idx] || 0);
-            
+
             return (
               <View key={idx} style={styles.hourlyCard}>
                 <Text style={styles.hourlyTime}>
@@ -383,26 +381,26 @@ export default function WeatherDetails() {
 
         {/* 14-DAY FORECAST */}
         <Text style={styles.sectionTitle}>14-Day Forecast</Text>
-        
+
         {weather.daily?.time?.map((date, idx) => {
           const day = new Date(date);
-          const dayName = idx === 0 
-            ? 'Today' 
-            : idx === 1 
-            ? 'Tomorrow' 
-            : day.toLocaleDateString('en-US', { weekday: 'short' });
-                    const monthDay = day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    const weatherInfo = getWeatherInfo(weather.daily.weathercode?.[idx] || 0);
-          
+          const dayName = idx === 0
+            ? 'Today'
+            : idx === 1
+              ? 'Tomorrow'
+              : day.toLocaleDateString('en-US', { weekday: 'short' });
+          const monthDay = day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const weatherInfo = getWeatherInfo(weather.daily.weathercode?.[idx] || 0);
+
           return (
             <View key={idx} style={styles.dailyCard}>
               <View style={styles.dailyDateContainer}>
                 <Text style={styles.dailyDay}>{dayName}</Text>
                 <Text style={styles.dailyDate}>{monthDay}</Text>
               </View>
-              
+
               <Text style={styles.dailyIcon}>{weatherInfo.icon}</Text>
-              
+
               <View style={styles.dailyTemps}>
                 <Text style={styles.dailyHigh}>
                   {Math.round(weather.daily.temperature_2m_max?.[idx] || 0)}°
@@ -411,7 +409,7 @@ export default function WeatherDetails() {
                   {Math.round(weather.daily.temperature_2m_min?.[idx] || 0)}°
                 </Text>
               </View>
-              
+
               <View style={styles.dailyRain}>
                 <Text style={styles.dailyRainText}>
                   💧 {weather.daily.precipitation_probability_max?.[idx] || 0}%

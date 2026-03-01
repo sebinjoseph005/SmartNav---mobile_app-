@@ -11,10 +11,12 @@ import {
     FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, AlertTriangle, MapPin, Clock, Send } from 'lucide-react-native';
+import { ArrowLeft, AlertTriangle, MapPin, Clock, Send, Trash2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
+import { getCachedLocation } from '../../services/locationCache';
 
 const SCAM_TYPES = [
     'Overcharging',
@@ -28,6 +30,7 @@ const SCAM_TYPES = [
 
 interface ScamReport {
     id: string;
+    user_id: string;
     description: string;
     scam_type: string;
     lat: number;
@@ -45,17 +48,24 @@ export default function ScamAlertScreen() {
     const [location, setLocation] = useState<any>(null);
     const [nearbyReports, setNearbyReports] = useState<ScamReport[]>([]);
     const [loadingReports, setLoadingReports] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     useEffect(() => {
         loadLocationAndReports();
+        loadCurrentUser();
     }, []);
 
+    const loadCurrentUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) setCurrentUserId(user.id);
+    };
+
     const loadLocationAndReports = async () => {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync({});
-        setLocation(loc.coords);
-        fetchNearbyReports(loc.coords.latitude, loc.coords.longitude);
+        const loc = await getCachedLocation();
+        if (!loc) return;
+        setLocation(loc);
+        fetchNearbyReports(loc.latitude, loc.longitude);
     };
 
     const fetchNearbyReports = async (lat: number, lon: number) => {
@@ -125,6 +135,43 @@ export default function ScamAlertScreen() {
         }
     };
 
+    const handleDeleteReport = (report: ScamReport) => {
+        Alert.alert(
+            '🗑️ Delete Report',
+            `Are you sure you want to remove your "${report.scam_type}" report?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            setDeletingId(report.id);
+                            await supabase
+                                .from('scam_reports')
+                                .delete()
+                                .eq('id', report.id)
+                                .eq('user_id', currentUserId!);
+
+                            const deletedStr = await AsyncStorage.getItem('deleted_scams');
+                            const deleted = deletedStr ? JSON.parse(deletedStr) : [];
+                            if (!deleted.includes(report.id)) {
+                                deleted.push(report.id);
+                                await AsyncStorage.setItem('deleted_scams', JSON.stringify(deleted));
+                            }
+
+                            setNearbyReports(prev => prev.filter(r => r.id !== report.id));
+                        } catch (err: any) {
+                            Alert.alert('Error', err.message || 'Could not delete report.');
+                        } finally {
+                            setDeletingId(null);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     const timeAgo = (dateStr: string) => {
         const diff = Date.now() - new Date(dateStr).getTime();
         const mins = Math.floor(diff / 60000);
@@ -138,7 +185,7 @@ export default function ScamAlertScreen() {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => navigation.navigate('SafetyMain')} style={styles.backBtn}>
                     <ArrowLeft color="#fff" size={22} />
                 </TouchableOpacity>
                 <View style={styles.headerTitle}>
@@ -240,20 +287,37 @@ export default function ScamAlertScreen() {
                             data={nearbyReports}
                             keyExtractor={item => item.id}
                             contentContainerStyle={{ padding: 16, gap: 12 }}
-                            renderItem={({ item }) => (
-                                <View style={styles.reportCard}>
-                                    <View style={styles.reportHeader}>
-                                        <View style={styles.scamTypeBadge}>
-                                            <Text style={styles.scamTypeText}>{item.scam_type}</Text>
+                            renderItem={({ item }) => {
+                                const isOwn = currentUserId && item.user_id === currentUserId;
+                                return (
+                                    <View style={styles.reportCard}>
+                                        <View style={styles.reportHeader}>
+                                            <View style={styles.scamTypeBadge}>
+                                                <Text style={styles.scamTypeText}>{item.scam_type}</Text>
+                                            </View>
+                                            <View style={styles.reportMeta}>
+                                                {isOwn && (
+                                                    <TouchableOpacity
+                                                        style={styles.deleteBtn}
+                                                        onPress={() => handleDeleteReport(item)}
+                                                        disabled={deletingId === item.id}
+                                                    >
+                                                        {deletingId === item.id ? (
+                                                            <ActivityIndicator size={12} color="#DC2626" />
+                                                        ) : (
+                                                            <Trash2 size={14} color="#DC2626" />
+                                                        )}
+                                                    </TouchableOpacity>
+                                                )}
+                                                <Clock size={12} color="#64748B" />
+                                                <Text style={styles.reportTime}>{timeAgo(item.created_at)}</Text>
+                                            </View>
                                         </View>
-                                        <View style={styles.reportMeta}>
-                                            <Clock size={12} color="#64748B" />
-                                            <Text style={styles.reportTime}>{timeAgo(item.created_at)}</Text>
-                                        </View>
+                                        <Text style={styles.reportDesc}>{item.description}</Text>
+                                        {isOwn && <Text style={styles.ownBadge}>Your report</Text>}
                                     </View>
-                                    <Text style={styles.reportDesc}>{item.description}</Text>
-                                </View>
-                            )}
+                                );
+                            }}
                         />
                     )}
                 </View>
@@ -365,4 +429,14 @@ const styles = StyleSheet.create({
     reportMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     reportTime: { color: '#64748B', fontSize: 12 },
     reportDesc: { color: '#CBD5E1', fontSize: 14, lineHeight: 20 },
+    deleteBtn: {
+        width: 28, height: 28, borderRadius: 14,
+        backgroundColor: 'rgba(220,38,38,0.1)',
+        justifyContent: 'center', alignItems: 'center',
+        marginRight: 6,
+    },
+    ownBadge: {
+        color: '#3B82F6', fontSize: 11, fontWeight: '600',
+        marginTop: 8, opacity: 0.7,
+    },
 });

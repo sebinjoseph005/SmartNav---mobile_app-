@@ -15,11 +15,14 @@ import {
   X,
   ShieldCheck,
   Users,
+  Users2,
   AlertTriangle,
-  Volume2,
+  VolumeX,
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
+import { getCachedLocation } from '../../services/locationCache';
 
 export default function SafetyDashboard() {
   const navigation = useNavigation<any>();
@@ -43,8 +46,16 @@ export default function SafetyDashboard() {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (location) fetchScamReports(location.latitude, location.longitude);
-    }, [location])
+      // Refresh scam data every time we return to this screen
+      const refresh = async () => {
+        const loc = await getCachedLocation();
+        if (loc) {
+          setLocation(loc);
+          fetchScamReports(loc.latitude, loc.longitude);
+        }
+      };
+      refresh();
+    }, [])
   );
 
   const fetchScamReports = async (lat: number, lon: number) => {
@@ -54,7 +65,12 @@ export default function SafetyDashboard() {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
+
+      const deletedStr = await AsyncStorage.getItem('deleted_scams');
+      const deleted = deletedStr ? JSON.parse(deletedStr) : [];
+
       const nearby = (data || []).filter((r: any) => {
+        if (deleted.includes(r.id)) return false;
         const dLat = (r.lat - lat) * 111;
         const dLon = (r.lon - lon) * 111 * Math.cos((lat * Math.PI) / 180);
         return Math.sqrt(dLat * dLat + dLon * dLon) <= 5;
@@ -108,12 +124,10 @@ export default function SafetyDashboard() {
   }, [menuExpanded]);
 
   const loadLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return;
-
-    const loc = await Location.getCurrentPositionAsync({});
-    setLocation(loc.coords);
-    fetchScamReports(loc.coords.latitude, loc.coords.longitude);
+    const loc = await getCachedLocation();
+    if (!loc) return;
+    setLocation(loc);
+    fetchScamReports(loc.latitude, loc.longitude);
   };
 
   const fetchSafePlaces = async (lat: number, lon: number) => {
@@ -288,14 +302,16 @@ export default function SafetyDashboard() {
               </TouchableOpacity>
             </Animated.View>
 
-            {/* CROWD DETECTION (Coming Soon) */}
+            {/* CROWD INSIGHT */}
             <Animated.View style={[styles.menuItemWrapper, { opacity: menuAnim2, transform: [{ translateY: menuAnim2.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-              <TouchableOpacity style={[styles.menuItem, styles.menuItemDisabled]}>
-                <View style={styles.menuIconCircle}>
-                  <Users size={20} color="#FFF" />
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => { setMenuExpanded(false); navigation.navigate('CrowdInsight'); }}
+              >
+                <View style={[styles.menuIconCircle, { backgroundColor: '#DC2626' }]}>
+                  <Users2 size={20} color="#FFF" />
                 </View>
-                <Text style={styles.menuLabel}>Crowd Detection</Text>
-                <Text style={styles.comingSoonBadge}>Soon</Text>
+                <Text style={styles.menuLabel}>Crowd Insight</Text>
               </TouchableOpacity>
             </Animated.View>
 
@@ -317,14 +333,16 @@ export default function SafetyDashboard() {
               </TouchableOpacity>
             </Animated.View>
 
-            {/* QUIET PLACES (Coming Soon) */}
+            {/* QUIET PLACES */}
             <Animated.View style={[styles.menuItemWrapper, { opacity: menuAnim4, transform: [{ translateY: menuAnim4.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-              <TouchableOpacity style={[styles.menuItem, styles.menuItemDisabled]}>
-                <View style={styles.menuIconCircle}>
-                  <Volume2 size={20} color="#FFF" />
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => { setMenuExpanded(false); navigation.navigate('QuietPlaces'); }}
+              >
+                <View style={[styles.menuIconCircle, { backgroundColor: '#0D9488' }]}>
+                  <VolumeX size={20} color="#FFF" />
                 </View>
                 <Text style={styles.menuLabel}>Quiet Places</Text>
-                <Text style={styles.comingSoonBadge}>Soon</Text>
               </TouchableOpacity>
             </Animated.View>
           </View>

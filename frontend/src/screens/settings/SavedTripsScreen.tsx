@@ -7,9 +7,10 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Alert,
+    Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, MapPin, Calendar, Users, Trash2, Eye } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Calendar, Users, Trash2, Eye, Share2 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { getSavedTrips, deleteSavedTrip, SavedTrip } from '../../services/tripService';
@@ -79,6 +80,37 @@ export default function SavedTripsScreen() {
             travelers: trip.travelers,
             isMockData: false,
         });
+    };
+
+    const handleShare = async (trip: SavedTrip) => {
+        try {
+            const dateFrom = formatDate(trip.from_date);
+            const dateTo = formatDate(trip.to_date);
+            const dateStr = dateFrom !== '—' && dateTo !== '—' ? `📅 ${dateFrom} – ${dateTo}` : '';
+            const budgetStr = trip.budget ? `💰 Budget: ${trip.currency || ''} ${Number(trip.budget).toLocaleString()}` : '';
+            const interestsStr = (trip.interests || []).length > 0 ? `🎯 Interests: ${trip.interests.join(', ')}` : '';
+            const travelersStr = trip.travelers ? `👥 ${trip.travelers} traveler${trip.travelers !== 1 ? 's' : ''}` : '';
+
+            const message = [
+                `🌍 Check out my SmartNav trip to ${trip.destination}!`,
+                '',
+                dateStr,
+                travelersStr,
+                budgetStr,
+                interestsStr,
+                '',
+                '📱 Plan your own trip with SmartNav – the smart travel companion app!',
+            ].filter(Boolean).join('\n');
+
+            await Share.share({
+                message,
+                title: `SmartNav Trip: ${trip.destination}`,
+            });
+        } catch (err: any) {
+            if (err.message !== 'User did not share') {
+                Alert.alert('Share failed', 'Could not share this trip.');
+            }
+        }
     };
 
     const formatDate = (dateStr: string) => {
@@ -175,6 +207,13 @@ export default function SavedTripsScreen() {
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
+                                    style={styles.shareBtn}
+                                    onPress={() => handleShare(item)}
+                                >
+                                    <Share2 size={15} color="#3B82F6" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
                                     style={styles.deleteBtn}
                                     onPress={() => handleDelete(item.id, item.destination)}
                                     disabled={deletingId === item.id}
@@ -182,7 +221,7 @@ export default function SavedTripsScreen() {
                                     {deletingId === item.id ? (
                                         <ActivityIndicator size={16} color="#DC2626" />
                                     ) : (
-                                        <Trash2 size={16} color="#DC2626" />
+                                        <Trash2 size={15} color="#DC2626" />
                                     )}
                                 </TouchableOpacity>
                             </View>
@@ -261,6 +300,16 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     viewBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+    shareBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: 'rgba(59,130,246,0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(59,130,246,0.2)',
+    },
     deleteBtn: {
         width: 44,
         height: 44,

@@ -33,10 +33,62 @@ app.get('/api/places/search', asyncHandler(PlacesController.search));
 // AI Trip Generation - Uses Groq AI + Real Places
 app.post('/api/trip/generate', asyncHandler(generateItinerary));
 
+// AI Travel Companion Chat
+app.post('/api/ai/companion', asyncHandler(async (req: express.Request, res: express.Response) => {
+  const { message, context } = req.body;
+  if (!message) {
+    return res.status(400).json({ success: false, error: 'Message is required' });
+  }
+
+  const Groq = (await import('groq-sdk')).default;
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ success: false, error: 'AI not configured' });
+  }
+
+  const client = new Groq({ apiKey });
+
+  const systemPrompt = `You are SmartNav AI, a friendly and knowledgeable travel companion built into the SmartNav mobile app. You help tourists with safety advice, local insights, trip planning, and general travel questions.
+
+PERSONALITY:
+- Warm, concise, and helpful — like a local friend
+- Use emojis occasionally to keep it friendly
+- Keep responses SHORT (2-4 paragraphs max)
+- Be specific and actionable, not generic
+
+CONTEXT ABOUT THE USER:
+${context?.location ? `- Current location: ${context.location}` : '- Location: not shared'}
+${context?.weather ? `- Weather: ${context.weather}` : ''}
+${context?.nearbyScams ? `- Nearby scam reports: ${context.nearbyScams}` : '- No scam reports nearby'}
+${context?.savedTrips ? `- They have ${context.savedTrips} saved trip(s)` : ''}
+
+CAPABILITIES:
+- Safety advice (scam awareness, solo travel tips, emergency info)
+- Local recommendations (food, attractions, hidden gems)
+- Trip planning tips (best times to visit, budget advice)
+- Cultural etiquette and local customs
+- Weather-based activity suggestions
+
+Always prioritize safety. If asked about a dangerous area, be honest but not alarmist.`;
+
+  const response = await client.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0.75,
+    max_tokens: 800,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message },
+    ],
+  });
+
+  const reply = response.choices[0]?.message?.content || 'Sorry, I couldn\'t process that right now.';
+  res.json({ success: true, reply });
+}));
+
 // Test endpoint
 app.get('/api/test', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     message: 'Backend API is working!',
     timestamp: new Date().toISOString(),
     env: {
@@ -54,8 +106,8 @@ app.get('/api/test/osm', async (req, res) => {
     const { MapsAPIService } = await import('./services/external/MapsAPI.service');
     // Test with Delhi coordinates
     const places = await MapsAPIService.getPlacesByCategory(28.6139, 77.2090, 'museum,attraction,restaurant');
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       source: 'OpenStreetMap Overpass API',
       placesCount: places.length,
       samplePlaces: places.slice(0, 5).map((p: any) => ({ name: p.name, category: p.categories, distance: `${p.distance?.toFixed(1)}km` }))

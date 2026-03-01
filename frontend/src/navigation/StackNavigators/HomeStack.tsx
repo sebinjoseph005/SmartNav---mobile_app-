@@ -3,6 +3,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import HomeDashboard from '../../screens/home/HomeDashboard';
 import WeatherDetails from '../../screens/home/WeatherDetails';
+import CrowdInsightScreen from '../../screens/home/CrowdInsightScreen';
+import QuietPlacesScreen from '../../screens/home/QuietPlacesScreen';
+import AICompanionChat from '../../screens/home/AICompanionChat';
 import TripBudgetScreen from '../../screens/budget/TripBudgetScreen';
 import TripPlannerInput from '../../screens/trip-planning/TripPlannerInput';
 import AIItineraryLoading from '../../screens/trip-planning/AIItineraryLoading';
@@ -25,6 +28,24 @@ export default function HomeStack() {
       <Stack.Screen
         name="WeatherDetails"
         component={WeatherDetails}
+      />
+
+      {/* CROWD INSIGHT */}
+      <Stack.Screen
+        name="CrowdInsight"
+        component={CrowdInsightScreen}
+      />
+
+      {/* QUIET PLACES */}
+      <Stack.Screen
+        name="QuietPlaces"
+        component={QuietPlacesScreen}
+      />
+
+      {/* AI COMPANION */}
+      <Stack.Screen
+        name="AICompanion"
+        component={AICompanionChat}
       />
 
       {/* SAFE HAVEN LOCATOR */}
