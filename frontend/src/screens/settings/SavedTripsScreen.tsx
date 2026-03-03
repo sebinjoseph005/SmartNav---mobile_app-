@@ -91,6 +91,23 @@ export default function SavedTripsScreen() {
             const interestsStr = (trip.interests || []).length > 0 ? `🎯 Interests: ${trip.interests.join(', ')}` : '';
             const travelersStr = trip.travelers ? `👥 ${trip.travelers} traveler${trip.travelers !== 1 ? 's' : ''}` : '';
 
+            // Build detailed itinerary
+            let itineraryStr = '';
+            if (trip.itinerary) {
+                try {
+                    const days = typeof trip.itinerary === 'string' ? JSON.parse(trip.itinerary) : trip.itinerary;
+                    if (Array.isArray(days)) {
+                        itineraryStr = days.map((day: any, i: number) => {
+                            const title = day.title || day.day || `Day ${i + 1}`;
+                            const activities = (day.activities || day.places || [])
+                                .map((a: any) => typeof a === 'string' ? `  • ${a}` : `  • ${a.name || a.place || a.activity || ''}${a.time ? ` (${a.time})` : ''}`)
+                                .join('\n');
+                            return `📍 ${title}\n${activities || '  • Explore & enjoy!'}`;
+                        }).join('\n\n');
+                    }
+                } catch { }
+            }
+
             const message = [
                 `🌍 Check out my SmartNav trip to ${trip.destination}!`,
                 '',
@@ -98,6 +115,9 @@ export default function SavedTripsScreen() {
                 travelersStr,
                 budgetStr,
                 interestsStr,
+                '',
+                itineraryStr ? '🗺️ FULL ITINERARY:' : '',
+                itineraryStr,
                 '',
                 '📱 Plan your own trip with SmartNav – the smart travel companion app!',
             ].filter(Boolean).join('\n');

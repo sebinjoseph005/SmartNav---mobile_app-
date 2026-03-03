@@ -1,0 +1,27 @@
+{
+    "cli": {
+        "version": ">= 7.2.0"
+    },
+    "build": {
+        "development": {
+            "developmentClient": true,
+            "distribution": "internal"
+        },
+        "preview": {
+            "distribution": "internal"
+        },
+        "preview-apk": {
+            "android": {
+                "buildType": "apk"
+            },
+            "env": {
+                "EXPO_PUBLIC_SUPABASE_URL": "http://10.242.113.88:8000",
+                "EXPO_PUBLIC_SUPABASE_ANON_KEY": "YOUR_KEY_HERE"
+            }
+        },
+        "production": {}
+    },
+    "submit": {
+        "production": {}
+    }
+}

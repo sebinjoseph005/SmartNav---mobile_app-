@@ -81,6 +81,8 @@ export default function ProfileScreen() {
   const fullName = user?.user_metadata?.full_name || 'Traveler';
   const email = user?.email || 'No email';
   const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  const travelLevel = tripCount >= 10 ? 'Globetrotter' : tripCount >= 5 ? 'Explorer' : tripCount >= 1 ? 'Adventurer' : 'Beginner';
+  const travelLevelColor = tripCount >= 10 ? '#F59E0B' : tripCount >= 5 ? '#10B981' : tripCount >= 1 ? '#3B82F6' : '#64748B';
 
   const menuItems = [
     {
@@ -91,7 +93,7 @@ export default function ProfileScreen() {
           color: '#7C3AED', onPress: () => navigation.navigate('SavedTrips'),
         },
         {
-          icon: Compass, label: 'My Places', sub: 'Saved locations & favourites',
+          icon: Compass, label: 'Travel Journal', sub: 'Your travel memories & notes',
           color: '#0891B2', onPress: () => navigation.navigate('SavedTrips'),
         },
       ],
@@ -104,8 +106,8 @@ export default function ProfileScreen() {
           color: '#64748B', onPress: () => navigation.navigate('AppSettings'),
         },
         {
-          icon: Bell, label: 'Notifications', sub: 'Manage your alerts',
-          color: '#F59E0B', onPress: () => navigation.navigate('AppSettings'),
+          icon: Bell, label: 'Notifications', sub: 'Scam alerts, messages & more',
+          color: '#F59E0B', onPress: () => navigation.navigate('Notifications'),
         },
         {
           icon: Shield, label: 'Safety History', sub: 'Your scam reports & alerts',
@@ -156,6 +158,10 @@ export default function ProfileScreen() {
 
           <Text style={styles.name}>{fullName}</Text>
           <Text style={styles.email}>{email}</Text>
+
+          <View style={[styles.levelBadge, { backgroundColor: travelLevelColor + '20', borderColor: travelLevelColor + '40' }]}>
+            <Text style={[styles.levelBadgeText, { color: travelLevelColor }]}>🏅 {travelLevel}</Text>
+          </View>
 
           {joinDate ? (
             <View style={styles.joinRow}>
@@ -289,6 +295,11 @@ const styles = StyleSheet.create({
 
   name: { fontSize: 24, fontWeight: '800', color: '#F1F5F9', marginBottom: 4, letterSpacing: -0.3 },
   email: { fontSize: 13, color: '#64748B', marginBottom: 10 },
+  levelBadge: {
+    paddingHorizontal: 14, paddingVertical: 5, borderRadius: 14,
+    borderWidth: 1, marginBottom: 10,
+  },
+  levelBadgeText: { fontSize: 12, fontWeight: '700' },
   joinRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 20 },
   joinText: { fontSize: 12, color: '#475569' },
 

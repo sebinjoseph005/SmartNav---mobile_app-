@@ -23,6 +23,8 @@ import {
     Info,
     Mail,
     Lock,
+    MessageCircle,
+    UserX,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -35,6 +37,7 @@ export default function SettingsScreen() {
     const [locationSharing, setLocationSharing] = useState(false);
     const [scamAlerts, setScamAlerts] = useState(true);
     const [communityUpdates, setCommunityUpdates] = useState(true);
+    const [chatNotifications, setChatNotifications] = useState(true);
 
     useEffect(() => {
         loadSettings();
@@ -51,6 +54,8 @@ export default function SettingsScreen() {
             if (dark !== null) setDarkMode(dark === 'true');
             if (scam !== null) setScamAlerts(scam === 'true');
             if (community !== null) setCommunityUpdates(community === 'true');
+            const chat = await AsyncStorage.getItem('setting_chat_notif');
+            if (chat !== null) setChatNotifications(chat === 'true');
         } catch { }
     };
 
@@ -75,6 +80,38 @@ export default function SettingsScreen() {
     const handleCommunityUpdates = (val: boolean) => {
         setCommunityUpdates(val);
         saveSetting('setting_community', val);
+    };
+    const handleChatNotifications = (val: boolean) => {
+        setChatNotifications(val);
+        saveSetting('setting_chat_notif', val);
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            'Delete Account',
+            'This will permanently delete your account and all associated data including saved trips, scam reports, and community posts. This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete My Account',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await supabase.auth.signOut();
+                            await AsyncStorage.clear();
+                            navigation.dispatch(
+                                require('@react-navigation/native').CommonActions.reset({
+                                    index: 0,
+                                    routes: [{ name: 'Auth' }],
+                                })
+                            );
+                        } catch (err: any) {
+                            Alert.alert('Error', 'Could not delete account. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const handleClearCache = () => {
@@ -219,6 +256,15 @@ export default function SettingsScreen() {
                         onValueChange={handleCommunityUpdates}
                         iconColor="#8B5CF6"
                     />
+                    <View style={styles.divider} />
+                    <ToggleRow
+                        icon={MessageCircle}
+                        title="Chat Messages"
+                        subtitle="Notify when buddies send messages"
+                        value={chatNotifications}
+                        onValueChange={handleChatNotifications}
+                        iconColor="#10B981"
+                    />
                 </View>
 
                 {/* Appearance */}
@@ -288,6 +334,18 @@ export default function SettingsScreen() {
                         subtitle="How we handle your data"
                         onPress={handleTerms}
                         iconColor="#64748B"
+                    />
+                </View>
+
+                {/* Danger Zone */}
+                <SectionHeader title="Danger Zone" />
+                <View style={styles.card}>
+                    <TapRow
+                        icon={UserX}
+                        title="Delete Account"
+                        subtitle="Permanently remove your data"
+                        onPress={handleDeleteAccount}
+                        danger
                     />
                 </View>
 

@@ -19,6 +19,23 @@ const EmailLoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleForgotPassword = async () => {
+    if (!email || !isValidEmail(email)) {
+      Alert.alert('Enter your email', 'Please enter a valid email address first, then tap Forgot Password.');
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Check your email', `We sent a password reset link to ${email}. Check your inbox!`);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', String(err));
+    }
+  };
+
   const isValidEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -97,6 +114,10 @@ const EmailLoginScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotBtn}>
+          <Text style={styles.forgotText}>Forgot Password?</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[
@@ -186,6 +207,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+    marginTop: -8,
+  },
+  forgotText: {
+    color: '#3B82F6',
+    fontSize: 13,
+    fontWeight: '600',
   },
   passwordInput: {
     flex: 1,

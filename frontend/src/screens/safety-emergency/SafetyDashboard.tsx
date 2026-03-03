@@ -131,11 +131,16 @@ export default function SafetyDashboard() {
   };
 
   const fetchSafePlaces = async (lat: number, lon: number) => {
+    const SERVERS = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+    ];
+
     try {
       setLoadingSafePlaces(true);
-      const radius = 13000;
+      const radius = 8000;
       const query = `
-        [out:json][timeout:25];
+        [out:json][timeout:20];
         (
           node["amenity"="police"](around:${radius},${lat},${lon});
           node["amenity"="hospital"](around:${radius},${lat},${lon});
@@ -148,25 +153,24 @@ export default function SafetyDashboard() {
         out body;
       `;
 
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: query,
-      });
+      let data = null;
+      for (const server of SERVERS) {
+        try {
+          const response = await fetch(server, { method: 'POST', body: query });
+          if (!response.ok) continue;
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) continue;
+          data = await response.json();
+          break;
+        } catch { continue; }
+      }
 
-      if (!response.ok) {
-        console.error('Overpass API error:', response.status);
+      if (!data || !data.elements) {
+        console.error('All Overpass servers failed for safe places');
         setLoadingSafePlaces(false);
         return;
       }
 
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('Overpass API returned non-JSON response - likely rate limited');
-        setLoadingSafePlaces(false);
-        return;
-      }
-
-      const data = await response.json();
       const places = data.elements.map((place: any) => ({
         id: place.id,
         latitude: place.lat,
@@ -271,8 +275,8 @@ export default function SafetyDashboard() {
         </View>
       )}
 
-      {/* SCAM ALERT BANNER */}
-      {scamReports.length > 0 && (
+      {/* SCAM ALERT BANNER — hide when SafeHaven is active to prevent overlap */}
+      {scamReports.length > 0 && !safeHavenMode && (
         <View style={styles.scamBanner}>
           <AlertTriangle size={16} color="#000" />
           <Text style={styles.scamBannerText}>

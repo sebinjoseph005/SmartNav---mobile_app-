@@ -5,6 +5,7 @@ import EditProfileScreen from '../../screens/settings/EditProfileScreen';
 import SavedTripsScreen from '../../screens/settings/SavedTripsScreen';
 import SettingsScreen from '../../screens/settings/SettingsScreen';
 import AIItineraryResult from '../../screens/trip-planning/AIItineraryResult';
+import NotificationsScreen from '../../screens/home/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -15,6 +16,7 @@ export default function ProfileStack() {
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="SavedTrips" component={SavedTripsScreen} />
       <Stack.Screen name="AppSettings" component={SettingsScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="AIItineraryResult" component={AIItineraryResult} />
     </Stack.Navigator>
   );

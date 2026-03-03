@@ -182,7 +182,7 @@ export default function HomeDashboard() {
     try {
       setLoadingPlaces(true);
       const query = `
-        [out:json][timeout:25];
+        [out:json][timeout:20];
         (
           node["tourism"="attraction"](around:5000,${lat},${lon});
           node["tourism"="museum"](around:5000,${lat},${lon});
@@ -192,10 +192,18 @@ export default function HomeDashboard() {
         );
         out body;>;out skel qt;
       `;
-      const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
-      if (!res.ok) return;
-      if (!res.headers.get('content-type')?.includes('application/json')) return;
-      const data = await res.json();
+      const SERVERS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+      let data = null;
+      for (const server of SERVERS) {
+        try {
+          const res = await fetch(server, { method: 'POST', body: query });
+          if (!res.ok) continue;
+          if (!res.headers.get('content-type')?.includes('application/json')) continue;
+          data = await res.json();
+          break;
+        } catch { continue; }
+      }
+      if (!data || !data.elements) return;
       const places = data.elements
         .filter((p: any) => p.lat && p.lon && p.tags?.name)
         .map((p: any) => {
@@ -249,7 +257,7 @@ export default function HomeDashboard() {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={[styles.iconButton, isScamNearby && styles.iconButtonAlert]}
-            onPress={() => navigation.navigate('Safety', { screen: 'SafetyMain' })}
+            onPress={() => navigation.navigate('Notifications')}
           >
             <Bell size={20} color={isScamNearby ? '#F59E0B' : '#94A3B8'} />
             {isScamNearby && <View style={styles.notifDot} />}

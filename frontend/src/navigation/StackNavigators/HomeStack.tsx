@@ -12,6 +12,7 @@ import AIItineraryLoading from '../../screens/trip-planning/AIItineraryLoading';
 import AIItineraryResult from '../../screens/trip-planning/AIItineraryResult';
 import EditItinerary from '../../screens/trip-planning/EditItinerary';
 import SafeHavenLocator from '../../screens/safety-emergency/SafeHavenLocator';
+import NotificationsScreen from '../../screens/home/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,6 +24,7 @@ export default function HomeStack() {
         name="HomeMain"
         component={HomeDashboard}
       />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
 
       {/* WEATHER DETAILS */}
       <Stack.Screen

@@ -5,19 +5,20 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-
     "backgroundColor": "#0B1220",
-
     "splash": {
       "image": "./assets/images/logos/app-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0B1220"
     },
-
-    "assetBundlePatterns": ["**/*"],
-
-    "platforms": ["android"],
-
-    "android": {}
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "platforms": [
+      "android"
+    ],
+    "android": {
+      "package": "com.smartnav.app"
+    }
   }
 }

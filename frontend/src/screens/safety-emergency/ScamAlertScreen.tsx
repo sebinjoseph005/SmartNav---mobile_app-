@@ -79,8 +79,13 @@ export default function ScamAlertScreen() {
 
             if (error) throw error;
 
+            // Filter out locally-deleted scam reports
+            const deletedStr = await AsyncStorage.getItem('deleted_scams');
+            const deleted = deletedStr ? JSON.parse(deletedStr) : [];
+
             // Filter to ~5km radius using rough distance calc
             const nearby = (data || []).filter((r: ScamReport) => {
+                if (deleted.includes(r.id)) return false;
                 const dLat = (r.lat - lat) * 111;
                 const dLon = (r.lon - lon) * 111 * Math.cos((lat * Math.PI) / 180);
                 const dist = Math.sqrt(dLat * dLat + dLon * dLon);

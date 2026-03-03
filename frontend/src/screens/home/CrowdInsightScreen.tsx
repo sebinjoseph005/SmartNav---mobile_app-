@@ -177,7 +177,7 @@ export default function CrowdInsightScreen() {
             } catch { }
 
             const query = `
-        [out:json][timeout:25];
+        [out:json][timeout:20];
         (
           node["tourism"="attraction"](around:3000,${latitude},${longitude});
           node["tourism"="museum"](around:3000,${latitude},${longitude});
@@ -190,14 +190,19 @@ export default function CrowdInsightScreen() {
         out body;>;out skel qt;
       `;
 
-            const response = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                body: query,
-            });
-
-            if (!response.ok) throw new Error('API error');
-
-            const data = await response.json();
+            const SERVERS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+            let data = null;
+            for (const server of SERVERS) {
+                try {
+                    const res = await fetch(server, { method: 'POST', body: query });
+                    if (!res.ok) continue;
+                    const ct = res.headers.get('content-type');
+                    if (!ct || !ct.includes('application/json')) continue;
+                    data = await res.json();
+                    break;
+                } catch { continue; }
+            }
+            if (!data || !data.elements) throw new Error('All servers failed');
             const now = new Date();
             const hour = now.getHours();
             const day = now.getDay();

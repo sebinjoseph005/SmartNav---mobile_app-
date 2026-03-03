@@ -7,9 +7,10 @@ import {
     FlatList,
     ActivityIndicator,
     Alert,
+    TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, MapPin, Heart, Users, Clock } from 'lucide-react-native';
+import { Plus, MapPin, Heart, Users, Clock, Search, X } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 
@@ -19,6 +20,7 @@ export default function CommunityFeed() {
     const [stories, setStories] = useState<any[]>([]);
     const [buddies, setBuddies] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useFocusEffect(
         useCallback(() => {
@@ -176,13 +178,40 @@ export default function CommunityFeed() {
                 </TouchableOpacity>
             </View>
 
+            {/* Search Bar */}
+            <View style={styles.searchBar}>
+                <Search size={16} color="#64748B" />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder={tab === 'stories' ? 'Search destinations or stories...' : 'Search trip destinations...'}
+                    placeholderTextColor="#475569"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                        <X size={16} color="#64748B" />
+                    </TouchableOpacity>
+                )}
+            </View>
+
             {loading ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color="#2563EB" />
                 </View>
             ) : (
                 <FlatList
-                    data={tab === 'stories' ? stories : buddies}
+                    data={
+                        (tab === 'stories' ? stories : buddies).filter(item => {
+                            if (!searchQuery.trim()) return true;
+                            const q = searchQuery.toLowerCase();
+                            const dest = (item.destination || '').toLowerCase();
+                            const title = (item.title || '').toLowerCase();
+                            const desc = (item.description || item.story || '').toLowerCase();
+                            return dest.includes(q) || title.includes(q) || desc.includes(q);
+                        })
+                    }
                     keyExtractor={item => item.id}
                     renderItem={tab === 'stories' ? renderStory : renderBuddy}
                     contentContainerStyle={styles.list}
@@ -242,6 +271,26 @@ const styles = StyleSheet.create({
     tabActive: { backgroundColor: '#2563EB' },
     tabText: { color: '#64748B', fontSize: 13, fontWeight: '600' },
     tabTextActive: { color: '#fff' },
+
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#111827',
+        marginHorizontal: 14,
+        marginBottom: 10,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: '#1E293B',
+    },
+    searchInput: {
+        flex: 1,
+        color: '#F1F5F9',
+        fontSize: 14,
+        paddingVertical: 10,
+    },
 
     list: { paddingHorizontal: 14, paddingBottom: 100, gap: 14 },
 
