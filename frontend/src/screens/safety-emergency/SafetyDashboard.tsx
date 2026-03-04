@@ -8,7 +8,8 @@ import {
   Animated,
   Alert,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import SafeMapView from '../../components/SafeMapView';
+import { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import {
   Plus,
@@ -33,6 +34,7 @@ export default function SafetyDashboard() {
   const [safePlaces, setSafePlaces] = useState<any[]>([]);
   const [loadingSafePlaces, setLoadingSafePlaces] = useState(false);
   const [scamReports, setScamReports] = useState<any[]>([]);
+  const [mapError, setMapError] = useState(false);
 
   // Animation values for menu items
   const menuAnim1 = useRef(new Animated.Value(0)).current;
@@ -228,8 +230,16 @@ export default function SafetyDashboard() {
   return (
     <View style={styles.container}>
       {/* MAP */}
-      {location ? (
-        <MapView
+      {mapError ? (
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center', padding: 30 }]}>
+          <ShieldCheck size={48} color="#3B82F6" />
+          <Text style={{ color: '#F1F5F9', fontSize: 18, fontWeight: '700', marginTop: 16, textAlign: 'center' }}>Safety Dashboard</Text>
+          <Text style={{ color: '#64748B', fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+            Map couldn't load on this device.{'\n'}Use the menu below to access safety features.
+          </Text>
+        </View>
+      ) : location ? (
+        <SafeMapView
           style={StyleSheet.absoluteFillObject}
           region={{
             latitude: location.latitude,
@@ -238,6 +248,7 @@ export default function SafetyDashboard() {
             longitudeDelta: 0.05,
           }}
           showsUserLocation
+          onMapReady={() => setMapError(false)}
         >
           {safeHavenMode && safePlaces.map((place) => (
             <Marker
@@ -258,7 +269,7 @@ export default function SafetyDashboard() {
               pinColor="#F59E0B"
             />
           ))}
-        </MapView>
+        </SafeMapView>
       ) : (
         <View style={styles.mapFallback}>
           <ActivityIndicator size="large" color="#3B82F6" />

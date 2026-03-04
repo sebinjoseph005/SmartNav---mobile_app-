@@ -52,7 +52,7 @@ export default function AIItineraryLoading() {
         console.log('📍 Destination:', route.params.destination);
         console.log('💰 Budget:', route.params.budget);
         console.log('🎯 Interests:', route.params.interests);
-        
+
         const result = await generateTripItinerary({
           destination: route.params.destination,
           lat: route.params.lat || 0,
@@ -86,7 +86,7 @@ export default function AIItineraryLoading() {
         console.error('Error message:', error.message);
         console.error('Error type:', error.constructor.name);
         console.error('Full error:', JSON.stringify(error, null, 2));
-        console.error('API URL being called:', 'http://10.242.113.88:3000/api/trip/generate');
+        console.error('API URL being called:', 'https://smartnav-mobile-app.onrender.com/api/trip/generate');
         console.error('Request params:', JSON.stringify({
           destination: route.params.destination,
           lat: route.params.lat,
@@ -94,13 +94,13 @@ export default function AIItineraryLoading() {
           fromDate: route.params.fromDate,
           toDate: route.params.toDate,
         }, null, 2));
-        
+
         // SHOW ERROR INSTEAD OF MOCK DATA
         setStepText('Failed to connect to server');
-        
+
         // Navigate back with error message
         setTimeout(() => {
-          alert(`Cannot connect to backend server!\n\nError: ${error.message}\n\nMake sure:\n1. Backend is running on port 3000\n2. Your device is on the same WiFi\n3. IP address is correct: 10.242.113.88`);
+          alert(`Cannot connect to backend server!\n\nError: ${error.message}\n\nMake sure your phone has an internet connection.`);
           navigation.goBack();
         }, 1000);
       }
@@ -125,14 +125,14 @@ export default function AIItineraryLoading() {
   const generateMockTimeline = (params: any) => {
     const interests = params.interests || ['History', 'Adventure'];
     const days = calculateDays(params.fromDate, params.toDate);
-    
+
     const mockActivities = [
       { time: '9:00 AM', title: 'Morning Temple Visit', subtitle: 'Historical landmarks', rating: '4.5', badge: 'SafeZone', info: `₹${Math.round(params.budget * 0.1)} Entry • 2h` },
       { time: '12:00 PM', title: 'Local Food Market', subtitle: 'Traditional cuisine experience', rating: '4.3', badge: 'Popular', info: `₹${Math.round(params.budget * 0.15)} • 1.5h` },
       { time: '3:00 PM', title: interests[0] + ' Activity', subtitle: 'Based on your interests', rating: '4.6', badge: 'Recommended', info: `₹${Math.round(params.budget * 0.2)} • 2h` },
       { time: '6:00 PM', title: 'Sunset View Point', subtitle: 'Scenic location', rating: '4.8', badge: 'SafeZone', info: 'Free • 1h' },
     ];
-    
+
     return Array.from({ length: days }, (_, i) => ({
       day: i + 1,
       activities: mockActivities,

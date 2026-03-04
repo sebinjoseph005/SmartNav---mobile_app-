@@ -25,8 +25,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 
-const API_IP = '10.242.113.88';
-const API_URL = `http://${API_IP}:3000/api`;
+const API_URL = 'https://smartnav-mobile-app.onrender.com/api';
 
 interface ChatMessage {
     id: string;

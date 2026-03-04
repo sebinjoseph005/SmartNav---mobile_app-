@@ -18,7 +18,8 @@ import {
   List,
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
+import SafeMapView from '../../components/SafeMapView';
+import { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useAuth } from '../../context/AuthContext';
 import { saveTrip } from '../../services/tripService';
 
@@ -205,7 +206,7 @@ export default function AIItineraryResult() {
           <View style={styles.mapContainer}>
             {mappableActivities.length > 0 ? (
               <>
-                <MapView
+                <SafeMapView
                   provider={PROVIDER_DEFAULT}
                   style={styles.map}
                   region={mapRegion}
@@ -234,7 +235,7 @@ export default function AIItineraryResult() {
                       </View>
                     </Marker>
                   ))}
-                </MapView>
+                </SafeMapView>
 
                 {/* Map legend */}
                 <View style={styles.mapLegend}>

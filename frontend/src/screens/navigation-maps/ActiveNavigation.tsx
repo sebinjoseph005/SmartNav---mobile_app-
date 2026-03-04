@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import SafeMapView from '../../components/SafeMapView';
+import { Marker, Polyline } from 'react-native-maps';
 import {
   ArrowLeft,
   ArrowUp,
@@ -30,7 +31,7 @@ export default function ActiveNavigation() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { destination, route: routeData, startLocation } = route.params || {};
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<SafeMapView>(null);
 
   const [userLocation, setUserLocation] = useState<any>(startLocation || null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -50,11 +51,11 @@ export default function ActiveNavigation() {
   // Speak instruction with Text-to-Speech
   const speak = async (text: string) => {
     if (isMuted) return;
-    
+
     try {
       // Stop any ongoing speech
       await Speech.stop();
-      
+
       // Speak with clear voice
       Speech.speak(text, {
         language: 'en-US',
@@ -62,7 +63,7 @@ export default function ActiveNavigation() {
         rate: 0.9, // Slightly slower for clarity
         voice: undefined, // Use system default
       });
-      
+
       console.log('🔊 Voice:', text);
     } catch (error) {
       console.error('Speech error:', error);
@@ -108,7 +109,7 @@ export default function ActiveNavigation() {
     if (type === 'merge') return `${distanceText}, merge ${modifier}`;
     if (type === 'roundabout') return `${distanceText}, take the roundabout exit onto ${name}`;
     if (type === 'new name') return `Continue onto ${name}`;
-    
+
     return `${distanceText}, continue on ${name}`;
   };
 
@@ -123,7 +124,7 @@ export default function ActiveNavigation() {
     if (stepIndex !== lastAnnouncedStep.current) {
       lastAnnouncedStep.current = stepIndex;
       announcedWarnings.current.clear(); // Clear warnings for new step
-      
+
       // Announce the new instruction
       const instruction = getVoiceInstruction(step, distance);
       speak(instruction);
@@ -146,7 +147,7 @@ export default function ActiveNavigation() {
       const maneuver = step?.maneuver;
       const type = maneuver?.type || '';
       const modifier = maneuver?.modifier || '';
-      
+
       if (type === 'turn') {
         speak(`Turn ${modifier} now`);
       } else if (type === 'arrive') {
@@ -160,7 +161,7 @@ export default function ActiveNavigation() {
     const R = 6371000; // Earth's radius in meters
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
+    const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -175,19 +176,19 @@ export default function ActiveNavigation() {
 
     if (type === 'arrive') return <Navigation2 size={32} color="#10B981" />;
     if (type === 'depart') return <ArrowUp size={32} color="#3B82F6" />;
-    
+
     if (type === 'turn') {
       if (modifier.includes('right')) return <ArrowRight size={32} color="#3B82F6" />;
       if (modifier.includes('left')) return <ArrowLeft size={32} color="#3B82F6" />;
     }
-    
+
     if (type === 'fork' || type === 'merge') {
       if (modifier.includes('right')) return <ArrowUpRight size={32} color="#3B82F6" />;
       if (modifier.includes('left')) return <ArrowUpLeft size={32} color="#3B82F6" />;
     }
 
     if (type === 'roundabout') return <ArrowRight size={32} color="#F59E0B" />;
-    
+
     return <ArrowUp size={32} color="#3B82F6" />; // Default: continue straight
   };
 
@@ -207,7 +208,7 @@ export default function ActiveNavigation() {
     if (type === 'merge') return `Merge ${modifier}`;
     if (type === 'roundabout') return `Take roundabout exit onto ${name}`;
     if (type === 'new name') return `Continue onto ${name}`;
-    
+
     return `Continue on ${name}`;
   };
 
@@ -279,7 +280,7 @@ export default function ActiveNavigation() {
           nextManeuver[0]
         );
         setDistanceToNextStep(distToNext);
-        
+
         // Announce navigation updates
         announceIfNeeded(closestStepIndex, distToNext);
       }
@@ -291,7 +292,7 @@ export default function ActiveNavigation() {
       totalRemaining += steps[i].distance || 0;
     }
     setRemainingDistance(totalRemaining);
-    
+
     // Estimate remaining time (assuming average speed from total route)
     const avgSpeed = routeData.distance / routeData.duration; // meters per second
     setRemainingTime(totalRemaining / avgSpeed);
@@ -371,7 +372,7 @@ export default function ActiveNavigation() {
   return (
     <View style={styles.container}>
       {/* MAP */}
-      <MapView
+      <SafeMapView
         ref={mapRef}
         style={styles.map}
         region={{
@@ -403,7 +404,7 @@ export default function ActiveNavigation() {
             strokeColor="#3B82F6"
           />
         )}
-      </MapView>
+      </SafeMapView>
 
       {/* TOP BAR */}
       <View style={styles.topBar}>
@@ -452,7 +453,7 @@ export default function ActiveNavigation() {
           </View>
           <View style={styles.instructionText}>
             <Text style={styles.instructionDistance}>
-              {distanceToNextStep < 1000 
+              {distanceToNextStep < 1000
                 ? `In ${Math.round(distanceToNextStep)} m`
                 : `In ${(distanceToNextStep / 1000).toFixed(1)} km`
               }
@@ -480,17 +481,17 @@ export default function ActiveNavigation() {
           <Text style={styles.destAddress}>
             {destination?.address || 'Navigating...'}
           </Text>
-          
+
           {/* Progress indicator */}
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
-              <View 
+              <View
                 style={[
-                  styles.progressFill, 
-                  { 
-                    width: `${Math.max(0, Math.min(100, ((routeData?.distance - remainingDistance) / routeData?.distance) * 100))}%` 
+                  styles.progressFill,
+                  {
+                    width: `${Math.max(0, Math.min(100, ((routeData?.distance - remainingDistance) / routeData?.distance) * 100))}%`
                   }
-                ]} 
+                ]}
               />
             </View>
             <Text style={styles.progressText}>

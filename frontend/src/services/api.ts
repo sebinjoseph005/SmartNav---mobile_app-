@@ -1,21 +1,7 @@
 import { Platform } from 'react-native';
 
-// Your computer's IP address
-const LOCAL_IP = '10.242.113.88'; // ✅ Auto-detected
-
-// Get API URL based on environment
-const getApiUrl = () => {
-  // For Android emulator
-  if (Platform.OS === 'android') {
-    // Try computer's IP first, fallback to emulator address
-    return `http://${LOCAL_IP}:3000/api`;
-  }
-
-  // For iOS or physical device
-  return `http://${LOCAL_IP}:3000/api`;
-};
-
-const API_URL = getApiUrl();
+// Render Cloud Backend
+const API_URL = 'https://smartnav-mobile-app.onrender.com/api';
 
 // Test backend connectivity
 export const testBackendConnection = async () => {
@@ -44,12 +30,12 @@ export const generateTripItinerary = async (tripData: {
 }) => {
   try {
     const apiUrl = `${API_URL}/trip/generate`;
-    
+
     console.log('\n========================================');
     console.log('🚀 CALLING BACKEND API');
     console.log('========================================');
     console.log('API URL:', apiUrl);
-    console.log('Full URL:', `http://${LOCAL_IP}:3000/api/trip/generate`);
+    console.log('Full URL:', apiUrl);
     console.log('Data being sent:', JSON.stringify({
       destination: tripData.destination,
       lat: tripData.lat,
@@ -96,9 +82,9 @@ export const generateTripItinerary = async (tripData: {
     }
 
     const result = await response.json();
-    
+
     console.log("API RESPONSE:", JSON.stringify(result, null, 2));
-    
+
     console.log('\n========================================');
     console.log('✅ API SUCCESS');
     console.log('========================================');
@@ -111,7 +97,7 @@ export const generateTripItinerary = async (tripData: {
       firstActivity: result.itinerary?.timeline?.[0]?.activities?.[0]?.title
     });
     console.log('========================================\n');
-    
+
     return result;
   } catch (error: any) {
     console.error('\n========================================');
@@ -127,23 +113,23 @@ export const generateTripItinerary = async (tripData: {
 
 function calculateDays(fromDate: string, toDate: string): number {
   console.log('📅 Calculating days from:', fromDate, 'to:', toDate);
-  
+
   if (!fromDate || !toDate) {
     console.warn('⚠️ Missing dates, defaulting to 4 days');
     return 4;
   }
-  
+
   const from = new Date(fromDate);
   const to = new Date(toDate);
-  
+
   if (isNaN(from.getTime()) || isNaN(to.getTime())) {
     console.error('❌ Invalid dates, defaulting to 4 days');
     return 4;
   }
-  
+
   const diff = Math.abs(to.getTime() - from.getTime());
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
-  
+
   console.log(`✅ Calculated ${days} days`);
   return days;
 }

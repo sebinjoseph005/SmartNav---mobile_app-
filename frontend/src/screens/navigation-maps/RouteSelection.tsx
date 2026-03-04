@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import SafeMapView from '../../components/SafeMapView';
+import { Marker, Polyline } from 'react-native-maps';
 import { ArrowLeft, Navigation, MapPin, ThumbsUp, Shield, Zap } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -55,7 +56,7 @@ export default function RouteSelection() {
       for (const mode of modes) {
         try {
           const url = `${OSRM_BASE}/${mode}/${location.coords.longitude},${location.coords.latitude};${destLon},${destLat}?overview=full&geometries=geojson`;
-          
+
           const res = await fetch(url);
           const data = await res.json();
 
@@ -116,7 +117,7 @@ export default function RouteSelection() {
       </TouchableOpacity>
 
       {/* MAP */}
-      <MapView
+      <SafeMapView
         style={styles.map}
         initialRegion={{
           latitude: userLocation?.latitude || 0,
@@ -156,7 +157,7 @@ export default function RouteSelection() {
             strokeColor="#3B82F6"
           />
         )}
-      </MapView>
+      </SafeMapView>
 
       {/* ROUTE INFO CARD */}
       {routeData && (
@@ -169,8 +170,8 @@ export default function RouteSelection() {
           </View>
 
           {/* TRAVEL MODE OPTIONS */}
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.modesScroll}
             contentContainerStyle={styles.modesContainer}
@@ -185,9 +186,9 @@ export default function RouteSelection() {
                 onPress={() => selectMode('driving')}
               >
                 <View style={styles.modeIcon}>
-                  <Car 
-                    size={20} 
-                    color={selectedMode === 'driving' ? '#FFF' : '#94A3B8'} 
+                  <Car
+                    size={20}
+                    color={selectedMode === 'driving' ? '#FFF' : '#94A3B8'}
                   />
                 </View>
                 <Text style={[
@@ -218,9 +219,9 @@ export default function RouteSelection() {
                 onPress={() => selectMode('cycling')}
               >
                 <View style={styles.modeIcon}>
-                  <Bike 
-                    size={20} 
-                    color={selectedMode === 'cycling' ? '#FFF' : '#94A3B8'} 
+                  <Bike
+                    size={20}
+                    color={selectedMode === 'cycling' ? '#FFF' : '#94A3B8'}
                   />
                 </View>
                 <Text style={[
@@ -251,9 +252,9 @@ export default function RouteSelection() {
                 onPress={() => selectMode('foot')}
               >
                 <View style={styles.modeIcon}>
-                  <PersonStanding 
-                    size={20} 
-                    color={selectedMode === 'foot' ? '#FFF' : '#94A3B8'} 
+                  <PersonStanding
+                    size={20}
+                    color={selectedMode === 'foot' ? '#FFF' : '#94A3B8'}
                   />
                 </View>
                 <Text style={[

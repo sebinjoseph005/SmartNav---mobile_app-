@@ -6,10 +6,18 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B1220",
+    "icon": "./assets/images/logos/app-icon.png",
     "splash": {
       "image": "./assets/images/logos/app-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0B1220"
+    },
+    "android": {
+      "package": "com.smartnav.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logos/app-icon.png",
+        "backgroundColor": "#0B1220"
+      }
     },
     "assetBundlePatterns": [
       "**/*"
@@ -17,8 +25,10 @@
     "platforms": [
       "android"
     ],
-    "android": {
-      "package": "com.smartnav.app"
+    "extra": {
+      "eas": {
+        "projectId": "9e1f7723-3a34-4ebf-8ae0-bfd6a377fc0b"
+      }
     }
   }
 }

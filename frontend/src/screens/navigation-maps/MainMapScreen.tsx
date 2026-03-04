@@ -10,20 +10,21 @@ import {
   FlatList,
   ScrollView,
 } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import SafeMapView from '../../components/SafeMapView';
+import { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Search, X, Navigation, MapPin, ThumbsUp, Shield, Zap, Car, Bike, PersonStanding, Wifi, WifiOff, AlertTriangle } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
 import { geocodeLocation, searchPlaces } from '../../services/placesService';
-import { 
-  calculateRouteWithTraffic, 
-  getTrafficIncidents, 
-  getTrafficFlow, 
+import {
+  calculateRouteWithTraffic,
+  getTrafficIncidents,
+  getTrafficFlow,
   getTrafficColor,
   getIncidentIcon,
   TrafficIncident,
-  TrafficFlowSegment 
+  TrafficFlowSegment
 } from '../../services/tomtomService';
 
 const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImM5ZWJlMTk1ZDk3MjQ3NzI4MWU1Njc0ZmEwYzlhOGYwIiwiaCI6Im11cm11cjY0In0=';
@@ -35,7 +36,7 @@ const geocodeCache = new Map<string, { lat: number; lon: number; timestamp: numb
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
 export default function MainMapScreen() {
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<SafeMapView>(null);
   const navigation = useNavigation();
   const route = useRoute<any>();
   const searchTimeout = useRef<any>(null);
@@ -121,7 +122,7 @@ export default function MainMapScreen() {
     if (route.params?.destination && route.params?.startNavigation && userLocation) {
       const { destination } = route.params;
       console.log('🛡️ Safe Haven destination received:', destination);
-      
+
       // Set destination
       setDestinationText(destination.name || 'Safe Place');
       setDestinationCoords({
@@ -178,9 +179,9 @@ export default function MainMapScreen() {
       console.log('🔍 Fetching suggestions for:', text);
       setSearchLoading(true);
       setSearchError(null);
-      
+
       const data = await searchPlaces(text); // Uses cached searchPlaces with timeout & retry
-      
+
       if (data && data.length > 0) {
         console.log('✅ Got', data.length, 'suggestions');
         setSuggestions(data);
@@ -196,7 +197,7 @@ export default function MainMapScreen() {
       console.error('❌ Suggestions fetch failed:', err);
       setSuggestions([]);
       setShowSuggestions(false);
-      
+
       if (err.message?.includes('timeout')) {
         setSearchError('Network too slow - try again');
       } else {
@@ -214,7 +215,7 @@ export default function MainMapScreen() {
     } else {
       setStartLocationText(text);
     }
-    
+
     // Clear previous timeout
     if (searchTimeout.current) {
       clearTimeout(searchTimeout.current);
@@ -229,13 +230,13 @@ export default function MainMapScreen() {
   /* ---------------- CALCULATE TRAVEL TIMES ---------------- */
   const calculateTravelTimes = (distanceMeters: number, drivingMinutes: number) => {
     const distanceKm = distanceMeters / 1000;
-    
+
     // Cycling: average 15 km/h
     const cyclingMinutes = Math.round((distanceKm / 15) * 60);
-    
+
     // Walking: average 5 km/h
     const walkingMinutes = Math.round((distanceKm / 5) * 60);
-    
+
     return {
       driving: drivingMinutes,
       cycling: cyclingMinutes,
@@ -251,7 +252,7 @@ export default function MainMapScreen() {
   ) => {
     try {
       console.log('🚦 Fetching traffic data...');
-      
+
       // Calculate tighter bounding box - only 0.02 degrees (~2km) buffer
       const lats = routeCoords.map(c => c.latitude);
       const lons = routeCoords.map(c => c.longitude);
@@ -264,7 +265,7 @@ export default function MainMapScreen() {
 
       // Fetch traffic incidents (fast, single call)
       const incidents = await getTrafficIncidents(bbox);
-      
+
       // Filter incidents to only those very close to the route (within ~500m)
       const nearbyIncidents = incidents.filter(incident => {
         return routeCoords.some(coord => {
@@ -275,7 +276,7 @@ export default function MainMapScreen() {
           return distance < 0.5; // within 500 meters
         });
       });
-      
+
       setTrafficIncidents(nearbyIncidents);
       console.log(`✅ Found ${nearbyIncidents.length} incidents near route (${incidents.length} total in area)`);
 
@@ -300,9 +301,9 @@ export default function MainMapScreen() {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos((point1.latitude * Math.PI) / 180) *
-        Math.cos((point2.latitude * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos((point2.latitude * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
@@ -323,9 +324,9 @@ export default function MainMapScreen() {
 
     const lat = parseFloat(suggestion.lat);
     const lon = parseFloat(suggestion.lon);
-    
+
     console.log('📍 Selected place:', suggestion.display_name, 'Coords:', lat, lon);
-    
+
     if (activeField === 'destination') {
       setDestinationText(suggestion.display_name);
       setDestinationCoords({ latitude: lat, longitude: lon });
@@ -345,7 +346,7 @@ export default function MainMapScreen() {
         searchWithCoords({ latitude: lat, longitude: lon }, destinationCoords, destinationText);
       }
     }
-    
+
     setShowSuggestions(false);
     setSuggestions([]);
   };
@@ -367,11 +368,11 @@ export default function MainMapScreen() {
       /* 2️⃣ FETCH ROUTE - Try ORS, fallback to OSRM */
       let routeData;
       let serviceUsed = 'unknown';
-      
+
       // Try ORS first (better quality, but may have network issues)
       try {
         console.log('📡 Trying ORS API...', `${ORS_DIRECTIONS_URL}`);
-        
+
         const routeRes = await fetch(ORS_DIRECTIONS_URL, {
           method: 'POST',
           headers: {
@@ -405,12 +406,12 @@ export default function MainMapScreen() {
         }
       } catch (orsError: any) {
         console.warn('⚠️ ORS failed, trying OSRM...', orsError.message);
-        
+
         // Fallback to OSRM (free, no API key, GET request)
         try {
           const osrmUrl = `${OSRM_DIRECTIONS_URL}/${start.longitude},${start.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
           console.log('📡 Calling OSRM API...');
-          
+
           const osrmRes = await fetch(osrmUrl, {
             method: 'GET',
             headers: {
@@ -423,25 +424,25 @@ export default function MainMapScreen() {
           }
 
           const osrmData = await osrmRes.json();
-          
+
           console.log('📊 OSRM raw response:', {
             code: osrmData.code,
             hasRoutes: !!osrmData.routes,
             routesLength: osrmData.routes?.length,
             firstRouteKeys: osrmData.routes?.[0] ? Object.keys(osrmData.routes[0]).join(', ') : 'N/A'
           });
-          
+
           if (osrmData.code !== 'Ok' || !osrmData.routes || osrmData.routes.length === 0) {
             throw new Error('OSRM returned no routes');
           }
 
           // Convert OSRM format to ORS-like format for consistency
           const osrmRoute = osrmData.routes[0];
-          
+
           console.log('📊 OSRM route geometry type:', osrmRoute.geometry?.type);
           console.log('📊 OSRM route has coordinates:', !!osrmRoute.geometry?.coordinates);
           console.log('📊 OSRM route coordinates count:', osrmRoute.geometry?.coordinates?.length);
-          
+
           routeData = {
             routes: [{
               geometry: osrmRoute.geometry,
@@ -452,7 +453,7 @@ export default function MainMapScreen() {
               segments: osrmRoute.legs,
             }]
           };
-          
+
           serviceUsed = 'OSRM';
           console.log('✅ OSRM route received and converted');
         } catch (osrmError: any) {
@@ -475,7 +476,7 @@ export default function MainMapScreen() {
       // Parse route data (handle both ORS features and routes format)
       let route;
       let summary;
-      
+
       if (routeData.features && routeData.features.length > 0) {
         // GeoJSON features format (ORS sometimes uses this)
         console.log('📊 Parsing as GeoJSON features format');
@@ -526,13 +527,13 @@ export default function MainMapScreen() {
       } else if (typeof route.geometry === 'string' || (route.geometry && !route.geometry.coordinates)) {
         // Encoded polyline format - try to get it from OSRM instead
         console.warn('⚠️ Received encoded polyline, falling back to OSRM...');
-        
+
         // Retry with OSRM which always returns GeoJSON
         try {
           const osrmUrl = `${OSRM_DIRECTIONS_URL}/${start.longitude},${start.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`;
           const osrmRes = await fetch(osrmUrl);
           const osrmData = await osrmRes.json();
-          
+
           if (osrmData.code === 'Ok' && osrmData.routes && osrmData.routes.length > 0) {
             const osrmRoute = osrmData.routes[0];
             coords = osrmRoute.geometry.coordinates.map((c: number[]) => ({
@@ -648,7 +649,7 @@ export default function MainMapScreen() {
   /* ---------------- SEARCH PLACE (OPTIMIZED WITH CACHE) ---------------- */
   const handleSearch = async () => {
     const searchText = activeField === 'destination' ? destinationText : startLocationText;
-    
+
     if (!searchText.trim() || searchText === 'Your Location') {
       return;
     }
@@ -662,31 +663,31 @@ export default function MainMapScreen() {
       /* 1️⃣ GEOCODE WITH CACHE */
       const cacheKey = searchText.toLowerCase().trim();
       const cached = geocodeCache.get(cacheKey);
-      
+
       let lat: number, lon: number;
-      
+
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
         console.log('✅ Using cached result for:', searchText);
         lat = cached.lat;
         lon = cached.lon;
       } else {
         const result = await geocodeLocation(searchText);
-        
+
         if (!result) {
           Alert.alert('Place Not Found', 'Could not find the location. Try a different search term.');
           setLoading(false);
           return;
         }
-        
+
         lat = result.lat;
         lon = result.lon;
-        
+
         // Cache the result
         geocodeCache.set(cacheKey, { lat, lon, timestamp: Date.now() });
       }
 
       console.log('📍 Found location:', { lat, lon });
-      
+
       if (activeField === 'destination') {
         setDestinationCoords({ latitude: lat, longitude: lon });
         const startCoords = startLocationCoords || userLocation;
@@ -699,7 +700,7 @@ export default function MainMapScreen() {
           await searchWithCoords({ latitude: lat, longitude: lon }, destinationCoords, destinationText);
         }
       }
-      
+
       setSearchOpen(false);
     } catch (e: any) {
       console.error('❌ Search error:', e);
@@ -731,7 +732,7 @@ export default function MainMapScreen() {
     try {
       const start = startLocationCoords || userLocation;
       let routeData;
-      
+
       // Try ORS first for turn-by-turn directions
       try {
         console.log('📡 Fetching turn-by-turn from ORS...');
@@ -759,21 +760,21 @@ export default function MainMapScreen() {
         }
       } catch (orsError) {
         console.warn('⚠️ ORS failed for navigation, using OSRM...');
-        
+
         // Fallback to OSRM with steps
         const osrmUrl = `${OSRM_DIRECTIONS_URL}/${start.longitude},${start.latitude};${destinationCoords.longitude},${destinationCoords.latitude}?overview=full&geometries=geojson&steps=true`;
         const osrmRes = await fetch(osrmUrl);
-        
+
         if (!osrmRes.ok) {
           throw new Error('Failed to get navigation directions');
         }
-        
+
         const osrmData = await osrmRes.json();
-        
+
         if (osrmData.code !== 'Ok' || !osrmData.routes || osrmData.routes.length === 0) {
           throw new Error('No navigation route found');
         }
-        
+
         // Convert OSRM format
         routeData = {
           routes: [{
@@ -781,7 +782,7 @@ export default function MainMapScreen() {
           }]
         };
       }
-      
+
       // Handle both formats
       let steps;
       if (routeData.features && routeData.features.length > 0) {
@@ -816,7 +817,7 @@ export default function MainMapScreen() {
   /* ---------------- UI ---------------- */
   return (
     <View style={styles.container}>
-      <MapView
+      <SafeMapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         showsUserLocation
@@ -848,9 +849,9 @@ export default function MainMapScreen() {
             coordinates={routeCoords}
             strokeWidth={6}
             strokeColor={
-              selectedMode === 'driving' ? '#3B82F6' : 
-              selectedMode === 'cycling' ? '#22C55E' : 
-              '#F59E0B'
+              selectedMode === 'driving' ? '#3B82F6' :
+                selectedMode === 'cycling' ? '#22C55E' :
+                  '#F59E0B'
             }
             lineDashPattern={selectedMode === 'foot' ? [10, 10] : undefined}
           />
@@ -888,13 +889,13 @@ export default function MainMapScreen() {
             </View>
           </Marker>
         ))}
-      </MapView>
+      </SafeMapView>
 
       {/* SEARCH BAR */}
       {searchOpen ? (
         <>
           {/* BACK BUTTON */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => {
               setSearchOpen(false);
@@ -925,7 +926,7 @@ export default function MainMapScreen() {
                 onSubmitEditing={handleSearch}
               />
               {startLocationText.length > 0 ? (
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => {
                     setStartLocationText('');
                     setStartLocationCoords(null);
@@ -962,7 +963,7 @@ export default function MainMapScreen() {
                 autoFocus
               />
               {destinationText.length > 0 ? (
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => {
                     setDestinationText('');
                     setShowSuggestions(false);
@@ -993,7 +994,7 @@ export default function MainMapScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              
+
               {/* Loading indicator */}
               {searchLoading && (
                 <View style={styles.suggestionItem}>
@@ -1001,7 +1002,7 @@ export default function MainMapScreen() {
                   <Text style={styles.suggestionAddress}>Searching...</Text>
                 </View>
               )}
-              
+
               {/* Error message */}
               {searchError && !searchLoading && (
                 <View style={styles.suggestionItem}>
@@ -1013,7 +1014,7 @@ export default function MainMapScreen() {
                   <Text style={styles.suggestionError}>{searchError}</Text>
                 </View>
               )}
-              
+
               {/* Regular suggestions */}
               {suggestions.length > 0 && !searchLoading && (
                 <FlatList
@@ -1077,7 +1078,7 @@ export default function MainMapScreen() {
       {routeInfo && !loading && (
         <View style={styles.routePopup}>
           {/* Close Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.closeButton}
             onPress={closeRoutePopup}
           >
@@ -1107,15 +1108,15 @@ export default function MainMapScreen() {
 
           {/* Travel Mode Times */}
           {travelTimes && (
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.routeOptions}
               contentContainerStyle={styles.routeOptionsContent}
             >
               {/* Car */}
               {travelTimes.driving && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.routeCard,
                     selectedMode === 'driving' && styles.routeCardActive
@@ -1145,7 +1146,7 @@ export default function MainMapScreen() {
 
               {/* Bike */}
               {travelTimes.cycling && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.routeCard,
                     selectedMode === 'cycling' && styles.routeCardActive
@@ -1175,7 +1176,7 @@ export default function MainMapScreen() {
 
               {/* Walking */}
               {travelTimes.foot && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.routeCard,
                     selectedMode === 'foot' && styles.routeCardActive
