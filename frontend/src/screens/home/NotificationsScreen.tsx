@@ -59,6 +59,9 @@ export default function NotificationsScreen() {
 
             // Check for nearby scam reports
             try {
+                const deletedStr = await AsyncStorage.getItem('deleted_scams');
+                const deleted = deletedStr ? JSON.parse(deletedStr) : [];
+
                 const { data: scams } = await supabase
                     .from('scam_reports')
                     .select('id, scam_type, description, created_at')
@@ -66,6 +69,7 @@ export default function NotificationsScreen() {
                     .limit(5);
 
                 (scams || []).forEach((s: any) => {
+                    if (deleted.includes(s.id)) return;
                     notifs.push({
                         id: `scam_${s.id}`,
                         type: 'scam',
@@ -206,6 +210,7 @@ export default function NotificationsScreen() {
             onPress={() => markAsRead(item.id)}
             activeOpacity={0.8}
         >
+            {!item.read && <View style={styles.unreadBorder} />}
             <View style={[styles.notifIcon, { backgroundColor: getIconBg(item.type) }]}>
                 {getIcon(item.type)}
             </View>
@@ -218,7 +223,6 @@ export default function NotificationsScreen() {
                 </View>
                 <Text style={styles.notifBody} numberOfLines={2}>{item.body}</Text>
             </View>
-            {!item.read && <View style={styles.unreadDot} />}
         </TouchableOpacity>
     );
 
@@ -241,11 +245,11 @@ export default function NotificationsScreen() {
                     <View style={styles.headerActions}>
                         {unreadCount > 0 && (
                             <TouchableOpacity onPress={markAllRead} style={styles.headerAction}>
-                                <CheckCheck size={18} color="#3B82F6" />
+                                <CheckCheck size={20} color="#3B82F6" />
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity onPress={clearAll} style={styles.headerAction}>
-                            <Trash2 size={18} color="#64748B" />
+                            <Trash2 size={20} color="#64748B" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -260,7 +264,7 @@ export default function NotificationsScreen() {
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
                             <View style={styles.emptyIcon}>
-                                <Bell size={48} color="#1E293B" />
+                                <Bell size={42} color="#3B82F6" />
                             </View>
                             <Text style={styles.emptyTitle}>All caught up!</Text>
                             <Text style={styles.emptySubtitle}>
@@ -275,60 +279,70 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#080E1A' },
+    container: { flex: 1, backgroundColor: '#050914' },
 
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#1E293B',
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(11,18,32,0.8)'
     },
     backBtn: { padding: 6, marginRight: 8 },
-    headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    headerTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9' },
+    headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9', letterSpacing: -0.5 },
     unreadBadge: {
-        backgroundColor: '#2563EB',
-        borderRadius: 10,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        minWidth: 22,
+        backgroundColor: '#3B82F6',
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        minWidth: 26,
         alignItems: 'center',
     },
-    unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-    headerActions: { flexDirection: 'row', gap: 8 },
+    unreadBadgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+    headerActions: { flexDirection: 'row', gap: 10 },
     headerAction: {
-        padding: 8,
-        backgroundColor: '#111827',
-        borderRadius: 10,
+        padding: 10,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 14,
     },
 
-    list: { padding: 14, gap: 10, paddingBottom: 100 },
+    list: { padding: 16, gap: 14, paddingBottom: 100 },
 
     notifCard: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        backgroundColor: '#0F172A',
-        borderRadius: 16,
-        padding: 14,
-        gap: 12,
+        backgroundColor: '#0B1220',
+        borderRadius: 20,
+        padding: 18,
+        gap: 16,
         borderWidth: 1,
-        borderColor: '#1E293B',
+        borderColor: 'rgba(255,255,255,0.05)',
+        overflow: 'hidden',
     },
     notifCardUnread: {
         backgroundColor: '#0F1A2E',
-        borderColor: '#1E3A5F',
+        borderColor: 'rgba(59,130,246,0.2)',
+    },
+    unreadBorder: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 4,
+        backgroundColor: '#3B82F6',
     },
     notifIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+        width: 48,
+        height: 48,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 2,
     },
-    notifContent: { flex: 1, gap: 4 },
+    notifContent: { flex: 1, gap: 6 },
     notifHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -336,31 +350,25 @@ const styles = StyleSheet.create({
     },
     notifTitle: {
         color: '#94A3B8',
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '600',
         flex: 1,
+        letterSpacing: -0.2,
     },
-    notifTitleUnread: { color: '#F1F5F9' },
-    notifTime: { color: '#475569', fontSize: 11, marginLeft: 8 },
-    notifBody: { color: '#64748B', fontSize: 13, lineHeight: 18 },
-    unreadDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#2563EB',
-        marginTop: 6,
-    },
+    notifTitleUnread: { color: '#F8FAFC', fontWeight: '700' },
+    notifTime: { color: '#64748B', fontSize: 12, marginLeft: 10, fontWeight: '500' },
+    notifBody: { color: '#64748B', fontSize: 14, lineHeight: 20 },
 
-    emptyState: { alignItems: 'center', paddingTop: 80, gap: 12 },
+    emptyState: { alignItems: 'center', paddingTop: 100, gap: 16 },
     emptyIcon: {
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: '#111827',
+        backgroundColor: 'rgba(59,130,246,0.1)',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
     },
-    emptyTitle: { color: '#F1F5F9', fontSize: 20, fontWeight: '700' },
-    emptySubtitle: { color: '#64748B', fontSize: 14, textAlign: 'center', lineHeight: 20 },
+    emptyTitle: { color: '#F8FAFC', fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
+    emptySubtitle: { color: '#64748B', fontSize: 15, textAlign: 'center', lineHeight: 22 },
 });

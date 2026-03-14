@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import CommunityFeed from '../../screens/community/CommunityFeed';
 import BlogDetail from '../../screens/community/BlogDetail';
 import CreateBlog from '../../screens/community/CreateBlog';
-import CreateBuddyPost from '../../screens/community/UserProfilePublic';
+import CreateBuddyPost from '../../screens/community/CreateBuddyPost';
 import BuddyChatScreen from '../../screens/community/BuddyChatScreen';
 
 const Stack = createNativeStackNavigator();

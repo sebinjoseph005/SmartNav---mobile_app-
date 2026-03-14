@@ -79,11 +79,11 @@ export default function ScamAlertScreen() {
 
             if (error) throw error;
 
-            // Filter out locally-deleted scam reports
+            // Fetch locally-deleted scam reports to filter out ghost reports
             const deletedStr = await AsyncStorage.getItem('deleted_scams');
             const deleted = deletedStr ? JSON.parse(deletedStr) : [];
 
-            // Filter to ~5km radius using rough distance calc
+            // Filter to ~5km radius using rough distance calc and remove deleted ones
             const nearby = (data || []).filter((r: ScamReport) => {
                 if (deleted.includes(r.id)) return false;
                 const dLat = (r.lat - lat) * 111;

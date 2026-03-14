@@ -27,6 +27,7 @@ import {
     UserX,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../../services/supabase';
 
 const APP_VERSION = '1.0.0';
 
@@ -223,7 +224,7 @@ export default function SettingsScreen() {
                     <ArrowLeft size={22} color="#F1F5F9" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Settings</Text>
-                <View style={{ width: 40 }} />
+                <View style={{ width: 42 }} />
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -351,7 +352,7 @@ export default function SettingsScreen() {
 
                 {/* App Info */}
                 <View style={styles.appInfo}>
-                    <Info size={14} color="#334155" />
+                    <Info size={14} color="#64748B" />
                     <Text style={styles.appInfoText}>SmartNav v{APP_VERSION}</Text>
                     <Text style={styles.appInfoText}>·</Text>
                     <Text style={styles.appInfoText}>Made with ❤️ for travelers</Text>
@@ -364,7 +365,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#080E1A' },
+    container: { flex: 1, backgroundColor: '#050914' },
 
     header: {
         flexDirection: 'row',
@@ -372,53 +373,55 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingTop: 56,
         paddingHorizontal: 20,
-        paddingBottom: 18,
-        backgroundColor: '#0B1220',
+        paddingBottom: 20,
+        backgroundColor: 'rgba(11,18,32,0.8)',
         borderBottomWidth: 1,
-        borderBottomColor: '#1E293B',
+        borderBottomColor: 'rgba(255,255,255,0.05)',
     },
     backBtn: {
-        width: 40, height: 40, borderRadius: 20,
+        width: 42, height: 42, borderRadius: 21,
         backgroundColor: '#1E293B',
         justifyContent: 'center', alignItems: 'center',
     },
-    headerTitle: { fontSize: 20, fontWeight: '800', color: '#F1F5F9' },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9', letterSpacing: -0.5 },
 
-    scrollContent: { paddingHorizontal: 16, paddingTop: 24 },
+    scrollContent: { paddingHorizontal: 16, paddingTop: 28 },
 
     sectionHeader: {
-        fontSize: 12, fontWeight: '700', color: '#475569',
-        letterSpacing: 1, textTransform: 'uppercase',
-        marginBottom: 10, marginLeft: 4, marginTop: 4,
+        fontSize: 13, fontWeight: '700', color: '#64748B',
+        letterSpacing: 1.2, textTransform: 'uppercase',
+        marginBottom: 12, marginLeft: 6, marginTop: 8,
     },
 
     card: {
-        backgroundColor: '#0F172A',
-        borderRadius: 18,
-        marginBottom: 24,
-        borderWidth: 1, borderColor: '#1E293B',
+        backgroundColor: '#0B1220',
+        borderRadius: 24,
+        marginBottom: 28,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
         overflow: 'hidden',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
     },
 
     settingRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        gap: 14,
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        gap: 16,
     },
     settingIcon: {
-        width: 42, height: 42, borderRadius: 21,
+        width: 44, height: 44, borderRadius: 22,
         justifyContent: 'center', alignItems: 'center',
     },
     settingContent: { flex: 1 },
-    settingTitle: { fontSize: 15, fontWeight: '600', color: '#F1F5F9', marginBottom: 2 },
-    settingSubtitle: { fontSize: 12, color: '#64748B' },
+    settingTitle: { fontSize: 16, fontWeight: '600', color: '#F8FAFC', marginBottom: 4, letterSpacing: -0.2 },
+    settingSubtitle: { fontSize: 13, color: '#94A3B8' },
 
-    divider: { height: 1, backgroundColor: '#1E293B', marginLeft: 72 },
+    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.04)', marginLeft: 80 },
 
     appInfo: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 6, paddingVertical: 16,
+        gap: 8, paddingVertical: 24,
     },
-    appInfoText: { fontSize: 12, color: '#334155' },
+    appInfoText: { fontSize: 13, color: '#64748B', fontWeight: '500' },
 });

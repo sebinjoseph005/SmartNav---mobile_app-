@@ -26,7 +26,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const R = 6371; // Earth's radius in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -41,7 +41,7 @@ function mapCategoryToOSMTags(categories: string): string[] {
     'restaurant': ['amenity=restaurant'],
     'cafe': ['amenity=cafe'],
     'bar': ['amenity=bar'],
-    
+
     // Tourism & Attractions - PRIMARY CATEGORIES
     'museum': ['tourism=museum'],
     'artwork': ['tourism=artwork'],
@@ -60,14 +60,14 @@ function mapCategoryToOSMTags(categories: string): string[] {
     'temple': ['historic=temple', 'amenity=place_of_worship'],
     // Generic attraction - works worldwide as fallback (combines multiple tags)
     'attraction': ['tourism=attraction', 'tourism=museum', 'tourism=gallery', 'historic'],
-    
+
     // Accommodation (if needed)
     'hotel': ['tourism=hotel'],
     'hostel': ['tourism=hostel'],
-    
+
     // Shopping (Tourist markets only)
     'market': ['amenity=marketplace', 'shop=mall'],
-    
+
     // Recreation & Nature
     'park': ['leisure=park'],
     'garden': ['leisure=garden'],
@@ -75,24 +75,31 @@ function mapCategoryToOSMTags(categories: string): string[] {
     'beach': ['natural=beach'],
     'stadium': ['leisure=stadium'],
     'sports_centre': ['leisure=sports_centre'],
+
+    // Essential Infrastructure (Added for dynamic chat lookups)
+    'hospital': ['amenity=hospital', 'amenity=clinic'],
+    'clinic': ['amenity=clinic'],
+    'college': ['amenity=college'],
+    'university': ['amenity=university'],
+    'school': ['amenity=school'],
   };
-  
+
   const tags: string[] = [];
   const cats = categories.toLowerCase().split(',');
-  
+
   for (const cat of cats) {
     const trimmed = cat.trim();
     if (categoryMap[trimmed]) {
       tags.push(...categoryMap[trimmed]);
     }
   }
-  
+
   // Default fallback - ONLY tourist attractions, NO generic amenities
   // Use broader tags that work worldwide
   if (tags.length === 0) {
     tags.push('tourism', 'historic', 'leisure=park');
   }
-  
+
   return tags;
 }
 
@@ -101,33 +108,32 @@ export class MapsAPIService {
   static async getPlacesByCategory(
     lat: number,
     lon: number,
-    categories: string
+    categories: string,
+    radius: number = 50000 // Default 50km radius
   ) {
     try {
       if (!isValidCoordinate(lat, lon)) {
         throw new Error('Invalid coordinates provided for OpenStreetMap search');
       }
 
-      // Use larger radius for better coverage (especially for large cities)
-      const radius = 50000; // 50km radius
       const tags = mapCategoryToOSMTags(categories);
-      
-      // Build Overpass query for multiple tag types
+
+      // Build Overpass query for multiple tag types including ways & relations (nwr)
       const tagQueries = tags.map(tag => {
         if (tag.includes('=')) {
           const [key, value] = tag.split('=');
-          return `node["${key}"="${value}"](around:${radius},${lat},${lon});`;
+          return `nwr["${key}"="${value}"](around:${radius},${lat},${lon});`;
         } else {
-          return `node["${tag}"](around:${radius},${lat},${lon});`;
+          return `nwr["${tag}"](around:${radius},${lat},${lon});`;
         }
       }).join('\n  ');
-      
+
       const query = `
         [out:json][timeout:25];
         (
           ${tagQueries}
         );
-        out tags 100;
+        out center tags 100;
       `;
 
       console.log('📡 Calling OpenStreetMap Overpass API...');
@@ -160,35 +166,43 @@ export class MapsAPIService {
       const places = data.elements
         .filter((p: any) => {
           if (!p.tags || !(p.tags['name:en'] || p.tags.name || p.tags['int_name'])) return false;
-          
-          // EXCLUDE non-tourist service places
+
+          // EXCLUDE non-tourist service places (unless implicitly requested by specific category)
           const tags = p.tags;
-          const bannedAmenities = ['bank', 'hospital', 'clinic', 'pharmacy', 'atm', 'post_office', 'school', 'university', 'college', 'police', 'fire_station', 'embassy', 'doctors', 'dentist', 'veterinary'];
+          const bannedAmenities = ['bank', 'atm', 'post_office', 'police', 'fire_station', 'embassy', 'dentist', 'veterinary'];
           const bannedShops = ['supermarket', 'convenience', 'department_store', 'general'];
-          
+
+          // Special escape hatch: if the user explicitly searched for hospital/college, we shouldn't ban it.
+          // Since we query exactly the tag (e.g. amenity=hospital), we trust the query over the banlist when they match.
+          // But to be safe, just limit the banned list.
+
           if (bannedAmenities.includes(tags.amenity)) return false;
           if (bannedShops.includes(tags.shop)) return false;
-          
+
           return true;
         })
         .map((p: any) => {
           const tags = p.tags || {};
-          const distance = calculateDistance(lat, lon, p.lat, p.lon);
-          
+
+          // Elements of type 'way' or 'relation' put coordinates in 'center' when 'out center' is used.
+          const plat = p.lat || p.center?.lat;
+          const plon = p.lon || p.center?.lon;
+          const distance = calculateDistance(lat, lon, plat, plon);
+
           // Prefer English name, fallback to international name, then default name
           const placeName = tags['name:en'] || tags['int_name'] || tags.name;
-          
+
           // Determine category from tags (prioritize tourism/historic/leisure)
           const category = tags.tourism || tags.historic || tags.leisure || tags.amenity || 'Place';
-          
+
           return {
             id: p.id.toString(),
             name: placeName,
             description: formatCategory(category),
             categories: formatCategory(category),
             rating: 4.0, // OSM doesn't provide ratings, use default
-            lat: p.lat,
-            lon: p.lon,
+            lat: plat,
+            lon: plon,
             address: tags['addr:street'] || tags['addr:city'] || 'Address available on map',
             distance: distance,
           };
@@ -196,7 +210,7 @@ export class MapsAPIService {
         .sort((a: any, b: any) => a.distance - b.distance); // Sort by distance
 
       console.log(`📋 Parsed places: ${places.slice(0, 3).map((p: any) => `${p.name} (${p.distance.toFixed(1)}km)`).join(', ')}`);
-      
+
       return places;
     } catch (error: any) {
       console.error('❌ MapsAPIService error:', error.message);
@@ -215,9 +229,9 @@ export class MapsAPIService {
       // ⚡ Check cache first for faster response
       const cacheKey = trimmed.toLowerCase();
       const cached = geocodeCache.get(cacheKey);
-      
+
       let lat: number, lon: number;
-      
+
       if (cached && Date.now() - cached.timestamp < GEOCODE_CACHE_DURATION) {
         console.log('✅ Cache hit for geocoding:', trimmed);
         lat = cached.lat;
@@ -225,9 +239,9 @@ export class MapsAPIService {
       } else {
         // Geocode the location using Nominatim with English language preference
         const geocodeUrl = `${NOMINATIM_API}/search?q=${encodeURIComponent(trimmed)}&format=json&limit=1&accept-language=en`;
-        
+
         console.log('📡 Geocoding location with Nominatim:', trimmed);
-        
+
         const geoRes = await fetch(geocodeUrl, {
           headers: {
             'User-Agent': 'SmartNav-Backend/1.0',
@@ -239,7 +253,7 @@ export class MapsAPIService {
         }
 
         const geoData: any = await geoRes.json();
-        
+
         if (!geoData || geoData.length === 0) {
           console.warn('⚠️ Location not found:', trimmed);
           throw new Error(`Location "${trimmed}" not found`);
@@ -251,7 +265,7 @@ export class MapsAPIService {
 
         // Store in cache
         geocodeCache.set(cacheKey, { lat, lon, timestamp: Date.now() });
-        
+
         // Clean old entries if cache gets too large
         if (geocodeCache.size > 500) {
           const entries = Array.from(geocodeCache.entries());
@@ -263,7 +277,7 @@ export class MapsAPIService {
       }
 
       // Now search for places near those coordinates
-      return await this.getPlacesByCategory(lat, lon, categories);
+      return await this.getPlacesByCategory(lat, lon, categories, 30000); // 30km for city-based search
     } catch (error: any) {
       console.error('❌ MapsAPIService (near) error:', error.message);
       throw error;

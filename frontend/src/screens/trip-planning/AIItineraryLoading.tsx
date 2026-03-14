@@ -86,7 +86,7 @@ export default function AIItineraryLoading() {
         console.error('Error message:', error.message);
         console.error('Error type:', error.constructor.name);
         console.error('Full error:', JSON.stringify(error, null, 2));
-        console.error('API URL being called:', 'https://smartnav-mobile-app.onrender.com/api/trip/generate');
+        console.error('API URL being called:', 'https://smartnav-backend.onrender.com/api/trip/generate');
         console.error('Request params:', JSON.stringify({
           destination: route.params.destination,
           lat: route.params.lat,

@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-// Render Cloud Backend
-const API_URL = 'https://smartnav-mobile-app.onrender.com/api';
+// Local Development Backend
+const API_URL = 'http://10.242.113.88:3000/api';
 
 // Test backend connectivity
 export const testBackendConnection = async () => {

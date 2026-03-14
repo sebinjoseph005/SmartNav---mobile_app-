@@ -1,15 +1,41 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    View, Text, StyleSheet, ScrollView, TouchableOpacity,
+    View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, MapPin, Heart, Calendar } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Calendar, ThumbsUp, ThumbsDown, Trash2 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { supabase } from '../../services/supabase';
 
 export default function BlogDetail() {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { story } = route.params || {};
+    const { story: initialStory, currentUserId: passedUserId } = route.params || {};
+
+    const [story, setStory] = useState<any>(initialStory);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(passedUserId || null);
+    const [myVote, setMyVote] = useState<number>(0);
+
+    useEffect(() => {
+        const loadUser = async () => {
+            if (!currentUserId) {
+                const { data } = await supabase.auth.getUser();
+                setCurrentUserId(data?.user?.id || null);
+            }
+        };
+        loadUser();
+    }, []);
+
+    useEffect(() => {
+        if (!currentUserId || !story?.id) return;
+        // Load the user's existing vote on this story
+        supabase.from('story_votes')
+            .select('vote')
+            .eq('user_id', currentUserId)
+            .eq('story_id', story.id)
+            .maybeSingle()
+            .then(({ data }) => setMyVote(data?.vote || 0));
+    }, [currentUserId, story?.id]);
 
     if (!story) {
         return (
@@ -24,6 +50,8 @@ export default function BlogDetail() {
         );
     }
 
+    const isOwner = currentUserId && story.author_id === currentUserId;
+
     const formatDate = (dateStr: string) => {
         try {
             return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -32,13 +60,60 @@ export default function BlogDetail() {
 
     const placesArray: string[] = Array.isArray(story.places) ? story.places : [];
 
-    const handleFollowRoute = () => {
-        if (placesArray.length === 0) return;
-        // Navigate to trip planner pre-filled with the destination
-        navigation.navigate('Home', {
-            screen: 'TripPlanner',
-            params: { prefillDestination: story.destination },
-        });
+    const handleDelete = () => {
+        Alert.alert('Delete Story', 'Are you sure? This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete', style: 'destructive',
+                onPress: async () => {
+                    await supabase.from('trip_stories').delete().eq('id', story.id);
+                    navigation.goBack();
+                },
+            },
+        ]);
+    };
+
+    const handleVote = async (vote: 1 | -1) => {
+        if (!currentUserId) {
+            Alert.alert('Sign in required', 'Please sign in to vote.');
+            return;
+        }
+        let newVote: number | null = vote;
+        let upvoteDelta = 0;
+        let downvoteDelta = 0;
+
+        if (myVote === vote) {
+            newVote = null;
+            if (vote === 1) upvoteDelta = -1;
+            else downvoteDelta = -1;
+        } else {
+            if (vote === 1) { upvoteDelta = 1; if (myVote === -1) downvoteDelta = -1; }
+            else { downvoteDelta = 1; if (myVote === 1) upvoteDelta = -1; }
+        }
+
+        setMyVote(newVote || 0);
+        setStory((s: any) => ({
+            ...s,
+            upvotes: Math.max(0, (s.upvotes || 0) + upvoteDelta),
+            downvotes: Math.max(0, (s.downvotes || 0) + downvoteDelta),
+        }));
+
+        try {
+            if (newVote === null) {
+                await supabase.from('story_votes').delete()
+                    .eq('user_id', currentUserId).eq('story_id', story.id);
+            } else {
+                await supabase.from('story_votes').upsert({
+                    user_id: currentUserId, story_id: story.id, vote: newVote,
+                });
+            }
+            const updated: any = {};
+            if (upvoteDelta !== 0) updated.upvotes = Math.max(0, (story.upvotes || 0) + upvoteDelta);
+            if (downvoteDelta !== 0) updated.downvotes = Math.max(0, (story.downvotes || 0) + downvoteDelta);
+            if (Object.keys(updated).length > 0) {
+                await supabase.from('trip_stories').update(updated).eq('id', story.id);
+            }
+        } catch (e) { console.error('Vote error', e); }
     };
 
     return (
@@ -48,6 +123,11 @@ export default function BlogDetail() {
                     <ArrowLeft color="#fff" size={22} />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }} />
+                {isOwner && (
+                    <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
+                        <Trash2 size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -72,10 +152,29 @@ export default function BlogDetail() {
                             <Text style={styles.dateText}>{formatDate(story.created_at)}</Text>
                         </View>
                     </View>
-                    <View style={styles.likes}>
-                        <Heart size={14} color="#64748B" />
-                        <Text style={styles.likesText}>{story.likes || 0}</Text>
-                    </View>
+                </View>
+
+                {/* Votes */}
+                <View style={styles.voteSection}>
+                    <TouchableOpacity
+                        style={[styles.voteBtn, myVote === 1 && styles.voteBtnActive]}
+                        onPress={() => handleVote(1)}
+                    >
+                        <ThumbsUp size={16} color={myVote === 1 ? '#10B981' : '#64748B'} />
+                        <Text style={[styles.voteCount, myVote === 1 && { color: '#10B981' }]}>
+                            {story.upvotes || 0}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.voteBtn, myVote === -1 && styles.voteBtnDownActive]}
+                        onPress={() => handleVote(-1)}
+                    >
+                        <ThumbsDown size={16} color={myVote === -1 ? '#EF4444' : '#64748B'} />
+                        <Text style={[styles.voteCount, myVote === -1 && { color: '#EF4444' }]}>
+                            {story.downvotes || 0}
+                        </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.voteHint}>Was this story helpful?</Text>
                 </View>
 
                 {/* Full story */}
@@ -111,7 +210,13 @@ export default function BlogDetail() {
 
                 {/* Follow route button */}
                 {placesArray.length > 0 && (
-                    <TouchableOpacity style={styles.followBtn} onPress={handleFollowRoute}>
+                    <TouchableOpacity
+                        style={styles.followBtn}
+                        onPress={() => navigation.navigate('Home', {
+                            screen: 'TripPlanner',
+                            params: { prefillDestination: story.destination },
+                        })}
+                    >
                         <MapPin size={18} color="#fff" />
                         <Text style={styles.followBtnText}>Plan a Similar Trip →</Text>
                     </TouchableOpacity>
@@ -131,6 +236,11 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1, borderBottomColor: '#1E293B',
     },
     backBtn: { padding: 4, marginRight: 8 },
+    deleteBtn: {
+        width: 36, height: 36, borderRadius: 18,
+        backgroundColor: 'rgba(239,68,68,0.12)',
+        justifyContent: 'center', alignItems: 'center',
+    },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     errorText: { color: '#94A3B8', fontSize: 16 },
 
@@ -145,14 +255,29 @@ const styles = StyleSheet.create({
 
     title: { color: '#fff', fontSize: 24, fontWeight: '800', lineHeight: 32, marginBottom: 16 },
 
-    meta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
+    meta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
     avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center' },
     avatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
     authorName: { color: '#F1F5F9', fontSize: 14, fontWeight: '600', marginBottom: 2 },
     dateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     dateText: { color: '#64748B', fontSize: 12 },
-    likes: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 5 },
-    likesText: { color: '#64748B', fontSize: 13 },
+
+    voteSection: {
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        backgroundColor: '#0F172A', borderRadius: 16,
+        padding: 14, marginBottom: 24,
+        borderWidth: 1, borderColor: '#1E293B',
+    },
+    voteBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        paddingHorizontal: 14, paddingVertical: 8,
+        borderRadius: 12, borderWidth: 1, borderColor: '#1E293B',
+        backgroundColor: '#111827',
+    },
+    voteBtnActive: { borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)' },
+    voteBtnDownActive: { borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.1)' },
+    voteCount: { color: '#64748B', fontSize: 14, fontWeight: '700' },
+    voteHint: { flex: 1, color: '#475569', fontSize: 12, fontStyle: 'italic' },
 
     storyText: { color: '#CBD5E1', fontSize: 15, lineHeight: 26, marginBottom: 28 },
 

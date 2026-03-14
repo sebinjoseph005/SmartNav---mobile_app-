@@ -274,17 +274,17 @@ export default function CrowdInsightScreen() {
                 >
                     {/* Overview Stats */}
                     <View style={styles.statsRow}>
-                        <View style={[styles.statCard, { borderColor: 'rgba(16,185,129,0.3)' }]}>
+                        <View style={[styles.statCard, { backgroundColor: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.2)' }]}>
                             <Text style={[styles.statNum, { color: '#10B981' }]}>{stats.low}</Text>
-                            <Text style={styles.statLabel}>🟢 Quiet</Text>
+                            <Text style={[styles.statLabel, { color: '#10B981' }]}>Quiet</Text>
                         </View>
-                        <View style={[styles.statCard, { borderColor: 'rgba(245,158,11,0.3)' }]}>
+                        <View style={[styles.statCard, { backgroundColor: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.2)' }]}>
                             <Text style={[styles.statNum, { color: '#F59E0B' }]}>{stats.moderate}</Text>
-                            <Text style={styles.statLabel}>🟡 Moderate</Text>
+                            <Text style={[styles.statLabel, { color: '#F59E0B' }]}>Moderate</Text>
                         </View>
-                        <View style={[styles.statCard, { borderColor: 'rgba(239,68,68,0.3)' }]}>
+                        <View style={[styles.statCard, { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.2)' }]}>
                             <Text style={[styles.statNum, { color: '#EF4444' }]}>{stats.high}</Text>
-                            <Text style={styles.statLabel}>🔴 Busy</Text>
+                            <Text style={[styles.statLabel, { color: '#EF4444' }]}>Busy</Text>
                         </View>
                     </View>
 
@@ -296,16 +296,18 @@ export default function CrowdInsightScreen() {
                     <View style={styles.listContainer}>
                         {places.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Users size={48} color="#1E293B" />
+                                <View style={styles.emptyIconWrap}>
+                                    <Users size={32} color="#3B82F6" />
+                                </View>
                                 <Text style={styles.emptyText}>No places found nearby</Text>
-                                <Text style={styles.emptySubText}>Try refreshing or move to a busier area</Text>
+                                <Text style={styles.emptySubText}>Try refreshing or moving to a busier area.</Text>
                             </View>
                         ) : (
                             places.map((place) => (
                                 <TouchableOpacity
                                     key={place.id}
                                     style={styles.placeCard}
-                                    activeOpacity={0.8}
+                                    activeOpacity={0.7}
                                     onPress={() => navigation.navigate('Map', {
                                         screen: 'MapMain',
                                         params: {
@@ -314,20 +316,19 @@ export default function CrowdInsightScreen() {
                                         }
                                     })}
                                 >
-                                    <View style={styles.placeLeft}>
-                                        <View style={styles.placeIconWrap}>
-                                            {getTypeIcon(place.type)}
+                                    <View style={styles.placeHeader}>
+                                        <View style={styles.placeLeft}>
+                                            <View style={styles.placeIconWrap}>
+                                                {getTypeIcon(place.type)}
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.placeName} numberOfLines={1}>{place.name}</Text>
+                                                <Text style={styles.placeCurrentBusy}>{place.currentBusy}</Text>
+                                            </View>
                                         </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.placeName} numberOfLines={1}>{place.name}</Text>
-                                            <Text style={styles.placeCurrentBusy}>{place.currentBusy}</Text>
-                                        </View>
-                                    </View>
-
-                                    <View style={styles.placeRight}>
-                                        <View style={[styles.crowdBadge, { backgroundColor: `${getCrowdColor(place.crowdLevel)}20`, borderColor: `${getCrowdColor(place.crowdLevel)}40` }]}>
+                                        <View style={[styles.crowdBadge, { backgroundColor: `${getCrowdColor(place.crowdLevel)}15`, borderColor: `${getCrowdColor(place.crowdLevel)}30` }]}>
                                             <Text style={[styles.crowdBadgeText, { color: getCrowdColor(place.crowdLevel) }]}>
-                                                {getCrowdEmoji(place.crowdLevel)} {getCrowdLabel(place.crowdLevel)}
+                                                {getCrowdLabel(place.crowdLevel)}
                                             </Text>
                                         </View>
                                     </View>
@@ -340,7 +341,7 @@ export default function CrowdInsightScreen() {
                                                 backgroundColor: getCrowdColor(place.crowdLevel),
                                             }]} />
                                         </View>
-                                        <Text style={styles.crowdBarPct}>{place.crowdScore}% busy</Text>
+                                        <Text style={styles.crowdBarPct}>{place.crowdScore}%</Text>
                                     </View>
 
                                     {/* Best time */}
@@ -361,91 +362,98 @@ export default function CrowdInsightScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#080E1A' },
+    container: { flex: 1, backgroundColor: '#050914' },
 
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingTop: 56,
         paddingHorizontal: 20,
-        paddingBottom: 18,
-        backgroundColor: '#0B1220',
+        paddingBottom: 20,
+        backgroundColor: 'rgba(11,18,32,0.8)',
         borderBottomWidth: 1,
-        borderBottomColor: '#1E293B',
-        gap: 12,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+        gap: 14,
     },
     backBtn: {
-        width: 40, height: 40, borderRadius: 20,
+        width: 42, height: 42, borderRadius: 21,
         backgroundColor: '#1E293B',
         justifyContent: 'center', alignItems: 'center',
     },
-    headerTitle: { fontSize: 20, fontWeight: '800', color: '#F1F5F9' },
-    headerSub: { fontSize: 12, color: '#64748B', marginTop: 1 },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9', letterSpacing: -0.5 },
+    headerSub: { fontSize: 13, color: '#94A3B8', marginTop: 2 },
     refreshBtn: {
-        width: 38, height: 38, borderRadius: 19,
-        backgroundColor: 'rgba(59,130,246,0.12)',
+        width: 42, height: 42, borderRadius: 21,
+        backgroundColor: 'rgba(59,130,246,0.15)',
         justifyContent: 'center', alignItems: 'center',
     },
 
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100, gap: 12 },
-    loadingText: { color: '#94A3B8', fontSize: 16, fontWeight: '600', marginTop: 8 },
-    loadingSubText: { color: '#334155', fontSize: 13 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100, gap: 16 },
+    loadingText: { color: '#E2E8F0', fontSize: 17, fontWeight: '600', marginTop: 8 },
+    loadingSubText: { color: '#64748B', fontSize: 14 },
 
     statsRow: {
         flexDirection: 'row',
-        gap: 10,
+        gap: 12,
         marginHorizontal: 16,
-        marginTop: 20,
-        marginBottom: 10,
+        marginTop: 24,
+        marginBottom: 16,
     },
     statCard: {
-        flex: 1, backgroundColor: '#0F172A',
-        borderRadius: 16, padding: 16,
-        alignItems: 'center', gap: 6,
+        flex: 1,
+        backgroundColor: '#0F172A',
+        borderRadius: 20,
+        paddingVertical: 18,
+        alignItems: 'center',
+        gap: 4,
         borderWidth: 1,
     },
-    statNum: { fontSize: 28, fontWeight: '800' },
-    statLabel: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+    statNum: { fontSize: 26, fontWeight: '800' },
+    statLabel: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
 
     lastUpdated: {
-        textAlign: 'center', color: '#334155',
-        fontSize: 11, marginBottom: 16,
+        textAlign: 'center', color: '#64748B',
+        fontSize: 12, marginBottom: 20,
+        fontWeight: '500'
     },
 
     listContainer: { paddingHorizontal: 16 },
 
     placeCard: {
-        backgroundColor: '#0F172A',
-        borderRadius: 18, padding: 16,
-        marginBottom: 12,
-        borderWidth: 1, borderColor: '#1E293B',
-        gap: 10,
+        backgroundColor: '#0B1220',
+        borderRadius: 20, padding: 18,
+        marginBottom: 14,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
     },
-    placeLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    placeHeader: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16
+    },
+    placeLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1, paddingRight: 10 },
     placeIconWrap: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: 'rgba(59,130,246,0.1)',
+        width: 44, height: 44, borderRadius: 22,
+        backgroundColor: 'rgba(59,130,246,0.12)',
         justifyContent: 'center', alignItems: 'center',
     },
-    placeName: { fontSize: 15, fontWeight: '700', color: '#F1F5F9', marginBottom: 2 },
-    placeCurrentBusy: { fontSize: 11, color: '#64748B' },
+    placeName: { fontSize: 16, fontWeight: '700', color: '#F8FAFC', marginBottom: 4, letterSpacing: -0.3 },
+    placeCurrentBusy: { fontSize: 13, color: '#94A3B8' },
 
-    placeRight: { position: 'absolute', top: 16, right: 16 },
     crowdBadge: {
-        paddingHorizontal: 10, paddingVertical: 5,
-        borderRadius: 20, borderWidth: 1,
+        paddingHorizontal: 12, paddingVertical: 6,
+        borderRadius: 12, borderWidth: 1,
     },
-    crowdBadgeText: { fontSize: 11, fontWeight: '700' },
+    crowdBadgeText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
 
-    crowdBarWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    crowdBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#1E293B', overflow: 'hidden' },
-    crowdBarFill: { height: '100%', borderRadius: 3 },
-    crowdBarPct: { fontSize: 11, color: '#475569', width: 60, textAlign: 'right' },
+    crowdBarWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+    crowdBarBg: { flex: 1, height: 8, borderRadius: 4, backgroundColor: '#1E293B', overflow: 'hidden' },
+    crowdBarFill: { height: '100%', borderRadius: 4 },
+    crowdBarPct: { fontSize: 13, fontWeight: '700', color: '#94A3B8', width: 45, textAlign: 'right' },
 
-    bestTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    bestTimeText: { fontSize: 11, color: '#475569', fontStyle: 'italic' },
+    bestTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#0F172A', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+    bestTimeText: { fontSize: 12, color: '#94A3B8', fontWeight: '500' },
 
-    emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
-    emptyText: { color: '#94A3B8', fontSize: 18, fontWeight: '700' },
-    emptySubText: { color: '#334155', fontSize: 13 },
+    emptyState: { alignItems: 'center', paddingVertical: 80, gap: 16 },
+    emptyIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(59,130,246,0.1)', justifyContent: 'center', alignItems: 'center' },
+    emptyText: { color: '#E2E8F0', fontSize: 18, fontWeight: '700' },
+    emptySubText: { color: '#64748B', fontSize: 14, textAlign: 'center' },
 });

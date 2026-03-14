@@ -23,9 +23,10 @@ import {
     MapPin,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
 
-const API_URL = 'https://smartnav-mobile-app.onrender.com/api';
+const API_URL = 'http://10.242.113.88:3000/api';
 
 interface ChatMessage {
     id: string;
@@ -59,9 +60,10 @@ export default function AICompanionChat() {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [locationName, setLocationName] = useState('');
+    const [exactCoords, setExactCoords] = useState<{ lat: number, lon: number } | null>(null);
     const [nearbyScams, setNearbyScams] = useState(0);
     const [weather, setWeather] = useState('');
-    const [tripCount, setTripCount] = useState(0);
+    const [savedTripsDetail, setSavedTripsDetail] = useState<any[]>([]);
     const [isKeyboardVisible, setKeyboardVisible] = useState(false);
     const flatRef = useRef<FlatList>(null);
     const dotAnim = useRef(new Animated.Value(0)).current;
@@ -108,7 +110,14 @@ export default function AICompanionChat() {
                     longitude: loc.coords.longitude,
                 });
                 if (geo[0]) {
-                    setLocationName(`${geo[0].district || geo[0].city || ''}, ${geo[0].region || geo[0].country || ''}`);
+                    const locParts = [];
+                    if (geo[0].name) locParts.push(geo[0].name);
+                    if (geo[0].district || geo[0].city) locParts.push(geo[0].district || geo[0].city);
+                    if (geo[0].subregion) locParts.push(geo[0].subregion);
+                    if (geo[0].region) locParts.push(geo[0].region);
+
+                    setLocationName(locParts.join(', '));
+                    setExactCoords({ lat: loc.coords.latitude, lon: loc.coords.longitude });
                 }
 
                 // Weather
@@ -123,7 +132,10 @@ export default function AICompanionChat() {
                 // Scam count
                 try {
                     const { data } = await supabase.from('scam_reports').select('id,lat,lon').limit(100);
+                    const deletedStr = await AsyncStorage.getItem('deleted_scams');
+                    const deleted = deletedStr ? JSON.parse(deletedStr) : [];
                     const nearby = (data || []).filter((r: any) => {
+                        if (deleted.includes(r.id)) return false;
                         const dLat = (r.lat - loc.coords.latitude) * 111;
                         const dLon = (r.lon - loc.coords.longitude) * 111 * Math.cos((loc.coords.latitude * Math.PI) / 180);
                         return Math.sqrt(dLat * dLat + dLon * dLon) <= 5;
@@ -138,7 +150,31 @@ export default function AICompanionChat() {
                 try {
                     const { getSavedTrips } = await import('../../services/tripService');
                     const trips = await getSavedTrips(user.id);
-                    setTripCount(trips.length);
+                    setSavedTripsDetail(
+                        trips.map(t => {
+                            // Try to extract places from the itinerary JSON
+                            const places: string[] = [];
+                            try {
+                                if (t.itinerary && Array.isArray(t.itinerary)) {
+                                    t.itinerary.forEach((day: any) => {
+                                        if (day.activities && Array.isArray(day.activities)) {
+                                            day.activities.forEach((act: any) => {
+                                                if (act.placeName) places.push(act.placeName);
+                                            });
+                                        }
+                                    });
+                                }
+                            } catch (e) { }
+
+                            return {
+                                destination: t.destination,
+                                budget: `${t.budget} ${t.currency}`,
+                                dates: `${t.from_date} to ${t.to_date}`,
+                                travelers: t.travelers,
+                                plannedPlaces: places.slice(0, 10), // Limit to top 10 places to avoid massive context
+                            };
+                        })
+                    );
                 } catch { }
             }
         } catch { }
@@ -165,16 +201,20 @@ export default function AICompanionChat() {
         setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
 
         try {
+            const apiHistory = messages.map(m => ({ role: m.role, content: m.content }));
+
             const res = await fetch(`${API_URL}/ai/companion`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: msg,
+                    history: apiHistory,
                     context: {
                         location: locationName || undefined,
+                        coordinates: exactCoords || undefined,
                         weather: weather || undefined,
                         nearbyScams: nearbyScams > 0 ? nearbyScams : undefined,
-                        savedTrips: tripCount > 0 ? tripCount : undefined,
+                        savedTrips: savedTripsDetail.length > 0 ? savedTripsDetail : undefined,
                     },
                 }),
             });

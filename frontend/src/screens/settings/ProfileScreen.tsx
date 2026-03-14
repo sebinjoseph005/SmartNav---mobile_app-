@@ -24,6 +24,8 @@ import {
   Compass,
   HelpCircle,
   FileText,
+  BookOpen,
+  Users,
 } from 'lucide-react-native';
 import { useNavigation, CommonActions, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
@@ -36,6 +38,7 @@ export default function ProfileScreen() {
   const [tripCount, setTripCount] = useState(0);
   const [joinDate, setJoinDate] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
+  const [communityPostCount, setCommunityPostCount] = useState(0);
 
   useEffect(() => { loadUserData(); }, []);
   useFocusEffect(useCallback(() => { loadUserData(); }, []));
@@ -56,6 +59,14 @@ export default function ProfileScreen() {
           const allInterests = trips.flatMap((t: any) => t.interests || []);
           const unique = [...new Set(allInterests)] as string[];
           setInterests(unique.slice(0, 6));
+        } catch { }
+        // Load community post count
+        try {
+          const [storiesRes, buddiesRes] = await Promise.all([
+            supabase.from('trip_stories').select('id', { count: 'exact', head: true }).eq('author_id', data.user.id),
+            supabase.from('trip_buddies').select('id', { count: 'exact', head: true }).eq('author_id', data.user.id),
+          ]);
+          setCommunityPostCount((storiesRes.count || 0) + (buddiesRes.count || 0));
         } catch { }
       }
     } catch (error) {
@@ -95,6 +106,19 @@ export default function ProfileScreen() {
         {
           icon: Compass, label: 'Travel Journal', sub: 'Your travel memories & notes',
           color: '#0891B2', onPress: () => navigation.navigate('SavedTrips'),
+        },
+      ],
+    },
+    {
+      section: 'My Community Posts',
+      items: [
+        {
+          icon: BookOpen, label: 'My Stories', sub: 'Travel experiences you shared',
+          color: '#2563EB', onPress: () => navigation.navigate('MyPosts', { type: 'stories' }),
+        },
+        {
+          icon: Users, label: 'My Trip Posts', sub: 'Trips you posted for buddies',
+          color: '#10B981', onPress: () => navigation.navigate('MyPosts', { type: 'buddies' }),
         },
       ],
     },
@@ -183,8 +207,8 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Star size={16} color="#F59E0B" />
-              <Text style={styles.statLabel}>Explorer</Text>
+              <Text style={styles.statNum}>{communityPostCount}</Text>
+              <Text style={styles.statLabel}>Posts</Text>
             </View>
           </View>
 

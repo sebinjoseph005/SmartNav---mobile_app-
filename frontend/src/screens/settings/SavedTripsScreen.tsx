@@ -69,9 +69,18 @@ export default function SavedTripsScreen() {
     };
 
     const handleView = (trip: SavedTrip) => {
+        let parsedItinerary = trip.itinerary;
+        if (typeof trip.itinerary === 'string') {
+            try {
+                parsedItinerary = JSON.parse(trip.itinerary);
+            } catch (err) {
+                console.error('Failed to parse itinerary string:', err);
+            }
+        }
+
         navigation.navigate('AIItineraryResult', {
             destination: trip.destination,
-            itinerary: trip.itinerary,
+            itinerary: parsedItinerary,
             budget: trip.budget,
             currency: trip.currency,
             interests: trip.interests,
