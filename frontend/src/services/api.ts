@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // Local Development Backend
-const API_URL = 'http://10.242.113.88:3000/api';
+const API_URL = 'http://172.30.46.88:3000/api';
 
 // Test backend connectivity
 export const testBackendConnection = async () => {

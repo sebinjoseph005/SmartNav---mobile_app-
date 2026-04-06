@@ -1,155 +1,106 @@
 import React, { useState } from 'react';
 import {
-    View, Text, StyleSheet, TextInput, TouchableOpacity,
-    ScrollView, Alert, ActivityIndicator,
+    View, Text, StyleSheet, TouchableOpacity, TextInput,
+    ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, MapPin, BookOpen, Tag, Send } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 
-export default function CreateStoryScreen() {
+export default function CreateBlog() {
     const navigation = useNavigation<any>();
-
-    const [destination, setDestination] = useState('');
     const [title, setTitle] = useState('');
+    const [destination, setDestination] = useState('');
     const [story, setStory] = useState('');
     const [places, setPlaces] = useState('');
     const [tags, setTags] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
-    const canSubmit = destination.trim() && title.trim() && story.trim().length >= 50;
-
-    const handleSubmit = async () => {
-        if (!canSubmit) return;
+    const handlePost = async () => {
+        if (!title.trim() || !destination.trim() || !story.trim()) {
+            Alert.alert('Missing Info', 'Please fill in the title, destination, and your story.');
+            return;
+        }
+        setSubmitting(true);
         try {
-            setSubmitting(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('Not logged in');
-
-            const authorName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler';
-            const placesArray = places.split(',').map(p => p.trim()).filter(Boolean);
-            const tagsArray = tags.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean);
-
+            const { data: authData } = await supabase.auth.getUser();
+            const user = authData?.user;
+            if (!user) { Alert.alert('Error', 'You must be logged in to post.'); return; }
+            const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler';
+            const placesArr = places.split(',').map(p => p.trim()).filter(Boolean);
+            const tagsArr = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
             const { error } = await supabase.from('trip_stories').insert({
-                user_id: user.id,
-                author_name: authorName,
-                destination: destination.trim(),
                 title: title.trim(),
+                destination: destination.trim(),
                 story: story.trim(),
-                places: placesArray,
-                tags: tagsArray,
+                places: placesArr,
+                tags: tagsArr,
+                author_name: fullName,
+                author_id: user.id,
             });
-
             if (error) throw error;
-
-            Alert.alert('🎉 Story Published!', 'Your trip story is now live in the community.', [
-                { text: 'Great!', onPress: () => navigation.goBack() },
-            ]);
+            Alert.alert('Posted! ✈️', 'Your travel story is live!', [{ text: 'Awesome!', onPress: () => navigation.goBack() }]);
         } catch (err: any) {
-            Alert.alert('Error', err.message || 'Could not publish story.');
+            console.error(err);
+            Alert.alert('Error', err.message || 'Failed to post. Please try again.');
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <ArrowLeft color="#fff" size={22} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Share Your Story</Text>
-                <View style={{ width: 40 }} />
-            </View>
-
-            <ScrollView contentContainerStyle={styles.form}>
-                <Text style={styles.label}>Destination *</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Delhi, Goa, Kochi…"
-                    placeholderTextColor="#4B5563"
-                    value={destination}
-                    onChangeText={setDestination}
-                />
-
-                <Text style={styles.label}>Story Title *</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Give your story a catchy title"
-                    placeholderTextColor="#4B5563"
-                    value={title}
-                    onChangeText={setTitle}
-                />
-
-                <Text style={styles.label}>Your Story * (min 50 chars)</Text>
-                <TextInput
-                    style={styles.textarea}
-                    placeholder="Tell us about your journey — where you went, what you saw, tips for others…"
-                    placeholderTextColor="#4B5563"
-                    multiline
-                    numberOfLines={8}
-                    value={story}
-                    onChangeText={setStory}
-                    textAlignVertical="top"
-                />
-                <Text style={styles.charCount}>{story.length} chars</Text>
-
-                <Text style={styles.label}>Places Visited (comma separated)</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Red Fort, Chandni Chowk, India Gate"
-                    placeholderTextColor="#4B5563"
-                    value={places}
-                    onChangeText={setPlaces}
-                />
-
-                <Text style={styles.label}>Tags (comma separated)</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="e.g. budget, solo, adventure, food"
-                    placeholderTextColor="#4B5563"
-                    value={tags}
-                    onChangeText={setTags}
-                />
-
-                <TouchableOpacity
-                    style={[styles.submitBtn, !canSubmit && styles.submitBtnDisabled]}
-                    onPress={handleSubmit}
-                    disabled={submitting || !canSubmit}
-                >
-                    {submitting ? <ActivityIndicator color="#fff" size={20} /> : (
-                        <><Send size={18} color="#fff" /><Text style={styles.submitText}>Publish Story</Text></>
-                    )}
-                </TouchableOpacity>
-            </ScrollView>
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><ArrowLeft size={20} color="#F1F5F9" /></TouchableOpacity>
+                    <Text style={styles.headerTitle}>Share Your Story</Text>
+                    <View style={{ width: 36 }} />
+                </View>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    <Text style={styles.subtitle}>Share your travel experience with the community! Help others plan their trips. ✈️</Text>
+                    <View style={styles.field}>
+                        <View style={styles.fieldLabel}><BookOpen size={15} color="#2563EB" /><Text style={styles.label}>Story Title *</Text></View>
+                        <TextInput style={styles.input} placeholder="e.g. My amazing trip to Munnar..." placeholderTextColor="#334155" value={title} onChangeText={setTitle} />
+                    </View>
+                    <View style={styles.field}>
+                        <View style={styles.fieldLabel}><MapPin size={15} color="#2563EB" /><Text style={styles.label}>Destination *</Text></View>
+                        <TextInput style={styles.input} placeholder="e.g. Munnar, Kerala" placeholderTextColor="#334155" value={destination} onChangeText={setDestination} />
+                    </View>
+                    <View style={styles.field}>
+                        <View style={styles.fieldLabel}><Send size={15} color="#2563EB" /><Text style={styles.label}>Your Story *</Text></View>
+                        <TextInput style={[styles.input, styles.textArea]} placeholder="Tell your story — what did you see, feel, and experience?" placeholderTextColor="#334155" value={story} onChangeText={setStory} multiline numberOfLines={7} textAlignVertical="top" />
+                    </View>
+                    <View style={styles.field}>
+                        <View style={styles.fieldLabel}><MapPin size={15} color="#2563EB" /><Text style={styles.label}>Places Visited (comma-separated)</Text></View>
+                        <TextInput style={styles.input} placeholder="e.g. Tea Museum, Mattupetty Dam, Eravikulam" placeholderTextColor="#334155" value={places} onChangeText={setPlaces} />
+                    </View>
+                    <View style={styles.field}>
+                        <View style={styles.fieldLabel}><Tag size={15} color="#2563EB" /><Text style={styles.label}>Tags (comma-separated)</Text></View>
+                        <TextInput style={styles.input} placeholder="e.g. nature, adventure, solo" placeholderTextColor="#334155" value={tags} onChangeText={setTags} />
+                    </View>
+                    <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handlePost} disabled={submitting} activeOpacity={0.85}>
+                        {submitting ? <ActivityIndicator color="#fff" /> : <><BookOpen size={18} color="#fff" /><Text style={styles.submitText}>Publish Story</Text></>}
+                    </TouchableOpacity>
+                    <View style={{ height: 40 }} />
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#080E1A' },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1E293B',
-    },
-    backBtn: { padding: 4 },
-    headerTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-    form: { padding: 16, gap: 4, paddingBottom: 60 },
-    label: { color: '#94A3B8', fontSize: 13, fontWeight: '600', marginBottom: 8, marginTop: 10 },
-    input: {
-        backgroundColor: '#111827', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
-        color: '#fff', fontSize: 14, borderWidth: 1, borderColor: '#1E293B', marginBottom: 4,
-    },
-    textarea: {
-        backgroundColor: '#111827', borderRadius: 12, padding: 14, color: '#fff', fontSize: 14,
-        height: 160, borderWidth: 1, borderColor: '#1E293B', marginBottom: 4,
-    },
-    charCount: { color: '#4B5563', fontSize: 11, textAlign: 'right', marginBottom: 4 },
-    submitBtn: {
-        backgroundColor: '#2563EB', flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: 14, marginTop: 24,
-    },
-    submitBtnDisabled: { opacity: 0.4 },
-    submitText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+    container: { flex: 1, backgroundColor: '#060C18' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1E293B' },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#0F172A', borderWidth: 1, borderColor: '#1E293B', justifyContent: 'center', alignItems: 'center' },
+    headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: '#F1F5F9' },
+    content: { padding: 20 },
+    subtitle: { color: '#64748B', fontSize: 14, lineHeight: 20, marginBottom: 24 },
+    field: { marginBottom: 20 },
+    fieldLabel: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    label: { color: '#CBD5E1', fontSize: 14, fontWeight: '600' },
+    input: { backgroundColor: '#0F172A', borderRadius: 14, borderWidth: 1, borderColor: '#1E293B', paddingHorizontal: 16, paddingVertical: 13, color: '#F1F5F9', fontSize: 14 },
+    textArea: { minHeight: 160, paddingTop: 13 },
+    submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#2563EB', paddingVertical: 16, borderRadius: 16, marginTop: 8 },
+    submitText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

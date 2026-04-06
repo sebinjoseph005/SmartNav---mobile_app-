@@ -149,9 +149,12 @@ export class MapsAPIService {
       console.log('📊 Overpass API response status:', res.status);
 
       if (!res.ok) {
+        if (res.status === 504 || res.status === 429) {
+          console.warn(`⚠️ Overpass API busy (${res.status}). Skipping external map data.`);
+          return [];
+        }
         const errorText = await res.text();
-        console.error('❌ Overpass API error:', errorText);
-        throw new Error(`Overpass API failed: ${res.status} - ${errorText}`);
+        throw new Error(`Overpass API failed: ${res.status}`);
       }
 
       const data: any = await res.json();

@@ -23,7 +23,18 @@ export default function EmergencySOS() {
   const [contactsNotified, setContactsNotified] = useState(0);
   const scaleAnim = new Animated.Value(1);
 
+  const [userDataCache, setUserDataCache] = useState<any>(null);
+  const [locationCache, setLocationCache] = useState<any>(null);
+
   useEffect(() => {
+    // Prefetch data immediately to avoid delay when timer hits 0
+    supabase.auth.getUser().then(res => setUserDataCache(res.data));
+    Location.requestForegroundPermissionsAsync().then(statusRes => {
+      if (statusRes.status === 'granted') {
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(loc => setLocationCache(loc));
+      }
+    });
+    
     startCountdown();
   }, []);
 
@@ -60,10 +71,9 @@ export default function EmergencySOS() {
 
   const sendEmergencyAlert = async () => {
     try {
-      // Get user's emergency contact
-      const { data: userData } = await supabase.auth.getUser();
-      const emergencyContactName = userData?.user?.user_metadata?.emergency_contact_name;
-      const emergencyContactPhone = userData?.user?.user_metadata?.emergency_contact_phone;
+      // Use prefetched user data for speed, fallback to fetch if not ready
+      const uData = userDataCache || (await supabase.auth.getUser()).data;
+      const emergencyContactPhone = uData?.user?.user_metadata?.emergency_contact_phone;
 
       if (!emergencyContactPhone) {
         Alert.alert(
@@ -74,21 +84,24 @@ export default function EmergencySOS() {
         return;
       }
 
-      // Get current location
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required for SOS.');
-        return;
+      // Try prefetched location, then fast last known, then balanced current
+      let loc = locationCache;
+      if (!loc) {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Location permission is required for SOS.');
+          return;
+        }
+        loc = await Location.getLastKnownPositionAsync() || await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       }
 
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = location.coords;
+      const { latitude, longitude } = loc.coords;
 
       // Create Google Maps link
       const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
 
       // SMS message
-      const userName = userData?.user?.user_metadata?.full_name || 'A SafeNav user';
+      const userName = uData?.user?.user_metadata?.full_name || 'A SafeNav user';
       const message = `🚨 EMERGENCY ALERT from ${userName}!\n\nI need help. My current location:\n${mapsLink}\n\nLat: ${latitude.toFixed(6)}, Lon: ${longitude.toFixed(6)}\n\nSent via SafeNav Emergency SOS`;
 
       // Open SMS app with pre-filled message

@@ -26,7 +26,7 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
 
-const API_URL = 'http://10.242.113.88:3000/api';
+const API_URL = 'http://172.30.46.88:3000/api';
 
 interface ChatMessage {
     id: string;
