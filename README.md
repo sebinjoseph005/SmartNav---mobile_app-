@@ -132,8 +132,7 @@ npx expo start
 
 **Sebin Joseph**
 
-📧 josephsebin012@gmail.com  
-💼 LinkedIn: https://linkedin.com/in/sebin-joseph  
+📧 josephsebin012@gmail.com   
 🌐 GitHub: https://github.com/sebinjoseph005
 
 ---
