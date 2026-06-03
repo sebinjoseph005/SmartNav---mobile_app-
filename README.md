@@ -6,6 +6,11 @@ The app combines artificial intelligence, location-based services, weather intel
 
 ---
 
+## 📱 Screenshots
+
+Application screenshots are available in the repository under the **App Screenshots** folder.
+
+---
 ## ✨ Features
 
 ### 🤖 AI Travel Assistant
@@ -71,14 +76,6 @@ The app combines artificial intelligence, location-based services, weather intel
 - Emergency safety features
 - Cloud-connected architecture
 - Modern React Native development practices
-
----
-
-## 📱 Screenshots
-
-Application screenshots are available in the repository under the **App Screenshots** folder.
-
----
 
 ## ⚙️ Installation
 
